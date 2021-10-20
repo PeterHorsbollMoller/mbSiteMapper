@@ -1,0 +1,37 @@
+﻿Declare Function SMSDLG_SiteMapperSetup() As Logical
+
+Declare Sub SMSDLGSaveUserSettings(ByVal sFile As String)
+Declare Sub SMSDLGLoadUserSettings(ByVal sFile As String)
+
+Declare Function SMSDLGExportMapWindow() As Logical
+Declare Function SMSDLGMainWID() As Integer
+Declare Function SMSDLGMainWindowType$() As String
+Declare Function SMSDLGSelectedMapperWID(ByVal nLevel As Integer) As Integer
+Declare Function SMSDLGSelectedLayoutWID() As Integer
+Declare Function SMSDLGUseSecondaryMap() As Integer
+
+Declare Function SMSDLGGetSiteTab(ByVal nLevel As Integer) As String
+Declare Function SMSDLGGetSiteColumn(ByVal nLevel As Integer, ByVal sColumnType As String) As String
+Declare Function SMSDLGQuerySiteTab(ByVal nLevel As Integer) As Logical
+
+Declare Function SMSDLGGetOutputFolder() As String
+Declare Function SMSDLGExportToFormat(ByVal sType As String) As Logical	'"PNG, "JPG", "PDF"
+Declare Function SMSDLGGetPDFPrinterDriver() As Integer
+Declare Function SMSDLGGetPDFPrinterDriver$() As String
+Declare Function SMSDLGGetImageResolutionItem() As Integer
+Declare Function SMSDLGGetImageResolution() As Integer
+Declare Function SMSDLGGetFileNameType() As Integer			'1: Char Column; 2: Site ID; 3: Counter
+
+Declare Function SMSDLGAddSiteAsLayer(ByVal nLevel As Integer) As Logical
+Declare Function SMSDLGStyleOverideSiteLayer(ByVal nLevel As Integer) As Logical
+Declare Function SMSDLGTurnOffSiteLayer(ByVal nLevel As Integer) As Logical
+
+Declare Function SMSDLGGetZoomWidth(ByVal nLevel As Integer) As Float
+Declare Function SMSDLGKeepCurrentZoom(ByVal nLevel As Integer) As Logical
+Declare Function SMSDLGGetZoomType(ByVal nLevel As Integer) As Logical
+
+Declare Function SMSDLGUseProperCase(ByVal sType As String) As Logical	'"MapTitle", "LayoutTitle", "FileName" ' Currently all use the same settings
+
+Declare Function SMSDLGCloseClonedWindow() As Logical
+Declare Function SMSDLGGetDelayCloseMiliSecs() As Integer
+Declare Function SMSDLGDelayOnCloseClonedWindow() As Logical

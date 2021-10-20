@@ -1,0 +1,8 @@
+' SiteMapper_x64.mbp
+[LINK]
+Application=..\SiteMapper_x64_v1.9.mbx
+Module=G:\TPP\Mapping\5 Tools\MapBasic\x64\Custom Apps\Library\DEBUGLib.mbo
+Module=G:\TPP\Mapping\5 Tools\MapBasic\x64\Custom Apps\Library\ERRORLib.mbo
+Module=G:\TPP\Mapping\5 Tools\MapBasic\x64\Custom Apps\Library\RibbonLib.mbo
+Module=G:\TPP\Mapping\5 Tools\MapBasic\x64\Custom Apps\Library\ARRAYLib.mbo
+Module=SiteMapper_x64_v1.9.mbo
