@@ -1,5 +1,6 @@
 ﻿Include "MapBasic.def"
 
+Include "Library\ARRAYLib.def"
 Include "Library\ConfigFileLib.def"
 
 Include "SMSDLG_SiteMapperSetup.def"
@@ -55,33 +56,35 @@ Define	CTRL_LBL_UNIQUE_CHAR_VALUES		29
 Define	CTRL_CHK_UNIQUE_CHAR_VALUES		30
 Define	CTRL_LST_FILENAME_TYPES			26
 
-declare sub Handler_OnDialogLoad
-declare sub Handler_OKClicked
-declare sub Handler_DialogCancelClicked
-declare sub Handler_LayoutMap1Clicked
-declare sub Handler_Site1ColumnsClicked
-declare sub Handler_LayoutMap2Clicked
-declare sub Handler_Site2ColumnsClicked
-declare sub Handler_GetLayersForMapper
-declare sub Handler_GetMapFramesForLayout
-declare sub Handler_GetLayersForMapFrame1
-declare sub Handler_GetLayersForMapFrame2
-declare sub Handler_FileNameTypeClicked
+Declare Sub Handler_OnDialogLoad
+Declare Sub Handler_OKClicked
+Declare Sub Handler_DialogCancelClicked
+Declare Sub Handler_LayoutMap1Clicked
+Declare Sub Handler_Site1ColumnsClicked
+Declare Sub Handler_LayoutMap2Clicked
+Declare Sub Handler_Site2ColumnsClicked
+Declare Sub Handler_GetLayersForMapper
+Declare Sub Handler_GetMapFramesForLayout
+Declare Sub Handler_GetLayersForMapFrame1
+Declare Sub Handler_GetLayersForMapFrame2
+Declare Sub Handler_FileNameTypeClicked
 
-declare sub Handler_WindowTypeClicked
-declare sub Handler_OnZoomType1Clicked
-declare sub Handler_OnZoomType2Clicked
-declare sub Handler_UseSpecificZoom1Clicked
-declare sub Handler_UseSpecificZoom2Clicked
-declare sub Handler_Site1LayersClicked
-declare sub Handler_Site2LayersClicked
-declare sub Handler_Site1AddLayerClicked
-declare sub Handler_Site2AddLayerClicked
-declare sub Handler_CreatePDFClicked
-declare sub Handler_CreateImageClicked
-declare sub Handler_UseDelayClicked
-declare sub Handler_ShowDelayInfoDlg
-declare sub Handler_BrowseFolderClicked
+Declare Sub Handler_WindowTypeClicked
+Declare Sub Handler_OnZoomType1Clicked
+Declare Sub Handler_OnZoomType2Clicked
+Declare Sub Handler_UseSpecificZoom1Clicked
+Declare Sub Handler_UseSpecificZoom2Clicked
+Declare Sub Handler_Site1LayersClicked
+Declare Sub Handler_Site2LayersClicked
+Declare Sub Handler_Site1AddLayerClicked
+Declare Sub Handler_Site2AddLayerClicked
+Declare Sub Handler_CreatePDFClicked
+Declare Sub Handler_CreateImageClicked
+Declare Sub Handler_UseDelayClicked
+Declare Sub Handler_ShowDelayInfoDlg
+Declare Sub Handler_BrowseFolderClicked
+
+Declare Sub SMSDLGLoadPDFPrinterDriverNames()
 
 Declare Method FILEBrowseForFolder
 	Class "FILELib.MIController"  Lib "FILELib.dll" Alias "BrowseForFolder"
@@ -110,7 +113,7 @@ Dim	mnWindowType, mnSelectedWindowItem, marrSelectedMapperWID(2), mnSelectedLayo
 '*******************************************************************************
 Function SMSDLG_SiteMapperSetup() As Logical
 
-	dim i, j as integer
+Dim	nWin as integer
 
 SMSDLG_SiteMapperSetup = FALSE
 
@@ -122,31 +125,25 @@ SMSDLG_SiteMapperSetup = FALSE
 	mnNumLayouts = 0
 	mnNumMappers = 0
 
-	' SET PDF Driver NAMES here
-	Redim marrPDFNames(3)
-	marrPDFNames(1) = "MapInfo PDF Printer Driver"
-	marrPDFNames(2) = "Microsoft Print to PDF"
-	marrPDFNames(3) = "Adobe PDF"
+	' Load PDF Driver Names here
+	Call SMSDLGLoadPDFPrinterDriverNames
 
 	' get names and IDs of mappers and layouts
-	For i = 1 to NumWindows()
-		Do Case WindowInfo(i,WIN_INFO_TYPE)
+	For nWin = 1 to NumWindows()
+		Do Case WindowInfo(nWin,WIN_INFO_TYPE)
 			Case WIN_MAPPER
-				mnNumMappers					= mnNumMappers + 1
-				ReDim astrMapperNames(mnNumMappers)
-				ReDim aintMapperIDs(mnNumMappers)
-				astrMapperNames(mnNumMappers)		= WindowInfo(i, WIN_INFO_NAME)
-				aintMapperIDs(mnNumMappers)		= WindowInfo(i, WIN_INFO_WINDOWID)
-				' print astrMapperNames(mnNumMappers)
+				Call ARRAYAddValueString(astrMapperNames, WindowInfo(nWin, WIN_INFO_NAME))
+				Call ARRAYAddValueInteger(aintMapperIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
+
 			Case WIN_LAYOUT_DESIGNER
-				mnNumLayouts					= mnNumLayouts + 1
-				ReDim astrLayoutNames(mnNumLayouts)
-				ReDim aintLayoutIDs(mnNumLayouts)
-				astrLayoutNames(mnNumLayouts)		= WindowInfo(i, WIN_INFO_NAME)
-				aintLayoutIDs(mnNumLayouts)		= WindowInfo(i, WIN_INFO_WINDOWID)
-				' print astrLayoutNames(mnNumLayouts)
+				Call ARRAYAddValueString(astrLayoutNames, WindowInfo(nWin, WIN_INFO_NAME))
+				Call ARRAYAddValueInteger(aintLayoutIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
+
 		End Case
 	Next
+
+	mnNumMappers	= Ubound(astrMapperNames)
+	mnNumLayouts	= Ubound(astrLayoutNames)
 
 	If mnNumMappers = 0 then
 		Note "You must have at least one Mapper open to use this tool"
@@ -154,9 +151,6 @@ SMSDLG_SiteMapperSetup = FALSE
 	End If
 
 	OnError goto 0
-
-'	Print "mnWindowType " + mnWindowType
-'	Print "mnSelectedWindowItem " + mnSelectedWindowItem
 
 	Dialog
 		Title "Site Mapper - Batch Printing Tool"
@@ -193,7 +187,6 @@ SMSDLG_SiteMapperSetup = FALSE
 		Control StaticText
 			Title "Select the Mapper or Layout window which will be used as a template for the individual 'site' maps."
 					+ " This template window will then be used to produce the individual 'site' maps."
-
 			Position 185,10
 			Width 160 Height 70
 
@@ -223,7 +216,6 @@ SMSDLG_SiteMapperSetup = FALSE
 			Title "Select the Mapper windows from the layout window to use."
 				+ " You must select a main mapper window and you can also select a secondary (overview) map."
 				+ " Zoom and pan for each can be controlled through the settings below."
-
 			Position 185, 70
 			Width 160		Height 55
 
@@ -286,7 +278,6 @@ SMSDLG_SiteMapperSetup = FALSE
 					+ " The 'child' site layer will be added at the same  position in the layer order as the 'parent' layer."
 					+ " Set the option to replicate the style override symbology and label properties for"
 					+ " the 'child' layer as the 'parent' layer."
-
 			Position 185,140
 			Width 160  Height 95
 
@@ -308,16 +299,13 @@ SMSDLG_SiteMapperSetup = FALSE
 			Width 65
 
 		Control StaticText
-			Title "Enter zoom width:"
+			Title "Zoom width, km:"
 			Position 10,270		ID CTRL_LBL_ZOOM_WIDTH_1
 '			Width 58
 		Control EditText
-			Position 71,268		ID CTRL_TXT_ZOOM_WIDTH_1
-			Width 20
+			Position 75,268		ID CTRL_TXT_ZOOM_WIDTH_1
+			Width 30
 			Value FormatNumber$(SMSDLGGetZoomWidth(1))
-		Control StaticText
-			Title "km."
-			Position 96,270
 
 		Control StaticText
 			Title "Current zoom:"
@@ -331,7 +319,6 @@ SMSDLG_SiteMapperSetup = FALSE
 		Control StaticText
 			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the centroid, full extent"
 					+ " (for polygons, polylines and multiple records) or don't change at all."
-
 			Position 185,245
 			Width 160		Height 40
 
@@ -414,16 +401,13 @@ SMSDLG_SiteMapperSetup = FALSE
 			Width 65
 
 		Control StaticText
-			Title "Enter zoom width:"
+			Title "Zoom width, km:"
 			Position 365,270		ID CTRL_LBL_ZOOM_WIDTH_2
 '			Width 58
 		Control EditText
-			Position 426,268		ID CTRL_TXT_ZOOM_WIDTH_2
-			Width 20
+			Position 430,268		ID CTRL_TXT_ZOOM_WIDTH_2
+			Width 30
 			Value FormatNumber$(SMSDLGGetZoomWidth(2))
-		Control StaticText
-			Title "km."
-			Position 451,270
 
 		Control StaticText
 			Title "Current zoom:"
@@ -465,7 +449,6 @@ SMSDLG_SiteMapperSetup = FALSE
 		Control PopupMenu ' column names for Filename
 			Position 365, 40		ID CTRL_LST_FILENAME_COLUMN		'28
 			Width 100
-			Title ""
 		Control StaticText
 			Title "Unique:"
 			Position 475, 43		ID CTRL_LBL_UNIQUE_CHAR_VALUES
@@ -556,7 +539,7 @@ SMSDLG_SiteMapperSetup = FALSE
 				+ " where ""City"" is the column name to read the value from. Use '$mb{SMGetSiteValueErr(""City"")}' to see "
 				+ " potential errors accessing the values. You can combine the Smart Text with fixed text. The Smart Text will"
 				+ " return an empty string until Site Mapper starts processing the output. For a record with 'New York'"
-				+ " in column 'City', the text 'City: $mb{SMGetColumnValue(""City"", 1, 0)}' would show as 'City: New York'"
+				+ " in column 'City', the text 'City: $mb{SMGetSiteValue(""City"", 1, 0)}' would show as 'City: New York'"
 				+ " Make sure the text frame is large enough to accommodate the full text from the Site table."
 			Position 5, 290		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT		'56
 			Width 700 height 35
@@ -615,7 +598,7 @@ End Function
 '*******************************************************************************
 'Handler_OnDialogLoad
 '*******************************************************************************
-sub Handler_OnDialogLoad
+Sub Handler_OnDialogLoad
 
 	If mnNumLayouts = 0 Then ' If there are no Layout windows (only mappers) then
 		alter Control CTRL_LBL_MAPPER_OR_LAYOUT Disable ' disable control text for mapper/layout (as only mappers)
@@ -635,8 +618,8 @@ sub Handler_OnDialogLoad
 
 	Call Handler_OnZoomType1Clicked
 	Call Handler_OnZoomType2Clicked
-	Call Handler_UseSpecificZoom1Clicked
-	Call Handler_UseSpecificZoom2Clicked
+'	Call Handler_UseSpecificZoom1Clicked
+'	Call Handler_UseSpecificZoom2Clicked
 
 	Call Handler_CreatePDFClicked
 	Call Handler_CreateImageClicked
@@ -645,15 +628,12 @@ sub Handler_OnDialogLoad
 
 	Call Handler_UseDelayClicked
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_OKClicked
 '*******************************************************************************
 Sub Handler_OKClicked
-
-Dim	sWinName, sMIVersion As String,
-	i, k, intCount As Integer
 
 	' >>>>>>>>>>>>>>>>>> This section Reads Control Values <<<<<<<<<<<<<<<<<<<<
 
@@ -687,8 +667,23 @@ Dim	sWinName, sMIVersion As String,
 		Exit Sub
 	End If
 
+	' Read Control Value for Column Name for Filename (and cloned window title)
+	mnFileNameType		= ReadControlValue(CTRL_LST_FILENAME_TYPES)
+	msColumnFileName	= ""
+	If mnFileNameType = 1 Then 'Use Char Column
+		If ReadControlValue(CTRL_LST_FILENAME_COLUMN) = 0 Then
+			Note "Please select a character column holding the file name for your sites."
+			Dialog Preserve
+			Exit Sub
+		End If
+		msColumnFileName = marrSite1CharColNames(ReadControlValue(CTRL_LST_FILENAME_COLUMN))
+	End If
+
 	'Read Control Value for PDF Driver
 	mnPDFDriver	= ReadControlValue(CTRL_LST_PDF_DRIVERS)
+
+	' Read Control Checkbox for exporting output filename as ProperCase
+	mbWinTitleAndFileNameProperCase =  ReadControlValue(CTRL_CHK_USE_PROPER_CASE)
 
 	'Read Control Value for IMG Resolution
 	Do Case ReadControlValue(CTRL_LST_IMAGE_RESOLUTION)
@@ -701,17 +696,6 @@ Dim	sWinName, sMIVersion As String,
 		Case 4
 			mnImageResolution = 600
 	End Case
-
-	' Read Control Value for Column Name for Filename (and cloned window title)
-	mnFileNameType		= ReadControlValue(CTRL_LST_FILENAME_TYPES)
-	msColumnFileName	= ""
-	If mnFileNameType = 1 Then 'Use Char Column
-		msColumnFileName = marrSite1CharColNames(ReadControlValue(CTRL_LST_FILENAME_COLUMN))
-	End If
-
-	' Read Control Checkbox for exporting output filename as ProperCase
-	mbWinTitleAndFileNameProperCase =  ReadControlValue(CTRL_CHK_USE_PROPER_CASE)
-
 
 	'******* TEMPLATE WINDOW AND MAP WINDOWS ***************************************************
 	' Read Control for Window Type
@@ -732,19 +716,13 @@ Dim	sWinName, sMIVersion As String,
 
 	'Read Control Values for which Map and Layout to Clone
 	If mbExportMapWindow then 'if Mapper selected, get Mapper win title
-		sWinName				= astrMapperNames(mnSelectedWindowItem)
 		marrSelectedMapperWID(1) = aintMapperIDs(mnSelectedWindowItem)
 	Else  'if Layout selected, get layout win title
-		sWinName				= astrLayoutNames(mnSelectedWindowItem)
 		mnSelectedLayoutWID 	= aintLayoutIDs(mnSelectedWindowItem)
 
 		marrSelectedMapperWID(1) = marrFrameMapIDs1(ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY))
 		marrSelectedMapperWID(2) = marrFrameMapIDs2(ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY))
 	End If
-
-	Print "1. Map Window ID: " & marrSelectedMapperWID(1)
-	Print "2. Map Window ID: " & marrSelectedMapperWID(2)
-	Print "Layout Window ID: " & mnSelectedLayoutWID
 
 	'******* SITE TABLES AND COLUMNS ***************************************************
 	' Read control for Site Table
@@ -814,16 +792,16 @@ End Sub
 '*******************************************************************************
 'Handler_UseDelayClicked
 '*******************************************************************************
-sub Handler_LayoutMap1Clicked
+Sub Handler_LayoutMap1Clicked
 
 	Call Handler_GetLayersForMapFrame1
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_UseDelayClicked
 '*******************************************************************************
-sub Handler_LayoutMap2Clicked
+Sub Handler_LayoutMap2Clicked
 
 	If ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY) In (1, 2) then
 		'Disable secondary map controls
@@ -847,12 +825,12 @@ sub Handler_LayoutMap2Clicked
 		Call Handler_GetLayersForMapFrame2
 	End If
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_UseDelayClicked
 '*******************************************************************************
-sub Handler_UseDelayClicked
+Sub Handler_UseDelayClicked
 
 	If ReadControlValue(CTRL_CHK_CLOSE_CLONED_WINDOWS) = 1 then
 		alter Control CTRL_LBL_DELAY_ON_CLOSE enable
@@ -862,11 +840,11 @@ sub Handler_UseDelayClicked
 		alter Control CTRL_LST_DELAY_ON_CLOSE Disable
 	End If
 
-End sub
+End Sub
 '*******************************************************************************
 'Handler_OnZoomType1Clicked
 '*******************************************************************************
-sub Handler_OnZoomType1Clicked
+Sub Handler_OnZoomType1Clicked
 
 	If ReadControlValue(CTRL_LST_ZOOM_TYPE_1) = 1 then
 		alter Control CTRL_LBL_ZOOM_WIDTH_1 Enable
@@ -879,12 +857,12 @@ sub Handler_OnZoomType1Clicked
 	End If
 	Call Handler_UseSpecificZoom1Clicked
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_OnZoomType2Clicked
 '*******************************************************************************
-sub Handler_OnZoomType2Clicked
+Sub Handler_OnZoomType2Clicked
 
 	If ReadControlValue(CTRL_LST_ZOOM_TYPE_2) = 1 then
 		alter Control CTRL_LBL_ZOOM_WIDTH_2 Enable
@@ -897,12 +875,12 @@ sub Handler_OnZoomType2Clicked
 	End If
 	Call Handler_UseSpecificZoom2Clicked
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_Site1AddLayerClicked
 '*******************************************************************************
-sub Handler_Site1AddLayerClicked
+Sub Handler_Site1AddLayerClicked
 
 	If ReadControlValue(CTRL_CHK_SITE1_ADD_LAYER) then
 		alter Control CTRL_LBL_SITE1_USE_LAYER_STYLES enable
@@ -916,12 +894,12 @@ sub Handler_Site1AddLayerClicked
 		alter Control CTRL_CHK_SITE1_OVERRIDE_LAYER Disable
 	End If
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_Site2AddLayerClicked
 '*******************************************************************************
-sub Handler_Site2AddLayerClicked
+Sub Handler_Site2AddLayerClicked
 
 	If ReadControlValue(CTRL_CHK_SITE2_ADD_LAYER) then
 		alter Control CTRL_LBL_SITE2_USE_LAYER_STYLES enable
@@ -935,12 +913,12 @@ sub Handler_Site2AddLayerClicked
 		alter Control CTRL_CHK_SITE2_OVERRIDE_LAYER Disable
 	End If
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_ShowDelayInfoDlg
 '*******************************************************************************
-sub Handler_ShowDelayInfoDlg
+Sub Handler_ShowDelayInfoDlg
 
 	Dialog
 		Title "What's this"
@@ -958,7 +936,7 @@ sub Handler_ShowDelayInfoDlg
 		Control OKButton
 			Position 78, 70
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Browse Button PROCEDURE
@@ -983,33 +961,36 @@ End Sub
 '*******************************************************************************
 'Handler_UseSpecificZoom1Clicked
 '*******************************************************************************
-sub Handler_UseSpecificZoom1Clicked
+Sub Handler_UseSpecificZoom1Clicked
 
 	If ReadControlValue(CTRL_CHK_KEEP_CURRENT_ZOOM_1) Then
-		alter Control CTRL_TXT_ZOOM_WIDTH_1 Disable
+		Alter Control CTRL_TXT_ZOOM_WIDTH_1 Disable
 	Else
-		alter Control CTRL_TXT_ZOOM_WIDTH_1 Enable
+		Alter Control CTRL_TXT_ZOOM_WIDTH_1 Enable
 	End If
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_UseSpecificZoom2Clicked
 '*******************************************************************************
-sub Handler_UseSpecificZoom2Clicked
+Sub Handler_UseSpecificZoom2Clicked
 
+'	Print "Handler_UseSpecificZoom2Clicked"
 	If ReadControlValue(CTRL_CHK_KEEP_CURRENT_ZOOM_2) Then
-		alter Control CTRL_TXT_ZOOM_WIDTH_2 Disable
+'		Print "  -> Alter Control CTRL_TXT_ZOOM_WIDTH_2 Disable"
+		Alter Control CTRL_TXT_ZOOM_WIDTH_2 Disable
 	Else
-		alter Control CTRL_TXT_ZOOM_WIDTH_2 Enable
+'		Print "  -> Alter Control CTRL_TXT_ZOOM_WIDTH_2 Enable"
+		Alter Control CTRL_TXT_ZOOM_WIDTH_2 Enable
 	End If
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_WindowTypeClicked Turn off controls for Layout options
 '*******************************************************************************
-sub Handler_WindowTypeClicked
+Sub Handler_WindowTypeClicked
 
 	If ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT) = 1 then ' Map
 		Alter Control CTRL_LST_WINDOW_NAMES title from variable astrMapperNames() ' update popup with Mapper names
@@ -1031,58 +1012,74 @@ sub Handler_WindowTypeClicked
 		Call Handler_GetMapFramesForLayout
 	End If
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_GetLayersForMapper
 '*******************************************************************************
-sub Handler_GetLayersForMapper
+Sub Handler_GetLayersForMapper
 
-dim k, j, intNumberOfLayer, nWID as integer
+Dim 	j, nLayer, nNumLayers, nWID as integer
 
 	If ReadControlValue(CTRL_LST_WINDOW_NAMES) = 0 then
-		Exit sub
+		Exit Sub
 	End If
 
 	nWID = aintMapperIDs(ReadControlValue(CTRL_LST_WINDOW_NAMES)) ' selected Mapper Window ID
-	intNumberOfLayer = MapperInfo(nWID, MAPPER_INFO_LAYERS)
+	If nWID = 0 then
+		Exit Sub
+	End If
+	nNumLayers = MapperInfo(nWID, MAPPER_INFO_LAYERS)
 
-	redim marrSite1TableNames(intNumberOfLayer+1)
+	Redim marrSite1TableNames(0)
+'	marrSite1TableNames(1) = "- Select Layer -" ' first value in array is blank
+	Call ARRAYAddValueString(marrSite1TableNames, "- Select Layer -")
 
-	marrSite1TableNames(1) = "- Select Layer -" ' first value in array is blank
-
-	For k = 1 to intNumberOfLayer
-		j = k+1
-		marrSite1TableNames(j) = LayerInfo(nWID,k,LAYER_INFO_NAME)
+	For nLayer = 1 to nNumLayers
+		If LayerInfo(nWID, nLayer, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then
+		'	j = j + 1
+		'	marrSite1TableNames(j) = LayerInfo(nWID, nLayer, LAYER_INFO_NAME)
+			Call ARRAYAddValueString(marrSite1TableNames, LayerInfo(nWID, nLayer, LAYER_INFO_NAME))
+		End If
 	Next
 
 	' update popup menu	with list of layers in Mapper
 	Alter Control CTRL_LST_SITE1_TABLE_NAMES Title from variable marrSite1TableNames()
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_GetMapFramesForLayout
 '*******************************************************************************
-sub Handler_GetMapFramesForLayout
+Sub Handler_GetMapFramesForLayout
 
-dim	k, j, nNumFrames, intNumberOfLayer, nMID, nWID, intCountMapperFrames as integer
+dim	k, j, nNumFrames, nNumLayers, nMID, nWID, intCountMapperFrames as integer
 
 	If ReadControlValue(CTRL_LST_WINDOW_NAMES) = 0 then
-		Exit sub
+		Exit Sub
 	End If
 
 	nWID			= aintLayoutIDs(ReadControlValue(CTRL_LST_WINDOW_NAMES))
 	nNumFrames	= LayoutInfo(nWID,LAYOUT_INFO_NUM_ITEMS)
 
-	Redim marrFrameMapNames1(nNumFrames + 1)
-	Redim marrFrameMapIDs1(nNumFrames + 1)
-	marrFrameMapNames1(1) = "- Select Map Frame -" 	' first value in array is blank
+'	Redim marrFrameMapNames1(nNumFrames + 1)
+'	Redim marrFrameMapIDs1(nNumFrames + 1)
+'	marrFrameMapNames1(1) = "- Select Map Frame -" 	' first value in array is blank
 
-	Redim marrFrameMapNames2(nNumFrames + 2)
-	Redim marrFrameMapIDs2(nNumFrames + 2)
-	marrFrameMapNames2(1) = "- Select Map Frame -" 	' first value in array is blank
-	marrFrameMapNames2(2) = "- No Seconday Map -" 	' secondary value in array is blank
+	Redim marrFrameMapNames1(0)
+	Redim marrFrameMapIDs1(0)
+	Call ARRAYAddValueString(marrFrameMapNames1, "- Select Map Frame -")
+	Call ARRAYAddValueInteger(marrFrameMapIDs1, 0)
+
+'	Redim marrFrameMapNames2(nNumFrames + 2)
+'	Redim marrFrameMapIDs2(nNumFrames + 2)
+'	marrFrameMapNames2(1) = "- Select Map Frame -" 	' first value in array is blank
+'	marrFrameMapNames2(2) = "- No Seconday Map -" 	' secondary value in array is blank
+
+	Redim marrFrameMapNames2(0)
+	Redim marrFrameMapIDs2(0)
+	Call ARRAYAddValueString(marrFrameMapNames2, "- No Seconday Map -")
+	Call ARRAYAddValueInteger(marrFrameMapIDs2, 0)
 
 	' loop through frames on Layout to find mapper frame ID
 	For k = 1 to nNumFrames
@@ -1090,15 +1087,20 @@ dim	k, j, nNumFrames, intNumberOfLayer, nMID, nWID, intCountMapperFrames as inte
 			nMID = LayoutItemInfo(nWID,k,LAYOUT_ITEM_INFO_WIN) 'get mapper frame id
 
 			intCountMapperFrames					= intCountMapperFrames + 1
-			marrFrameMapIDs1(intCountMapperFrames + 1)	= nMID
-			marrFrameMapNames1(intCountMapperFrames + 1)	= WindowInfo(nMID, WIN_INFO_NAME)
-			marrFrameMapIDs2(intCountMapperFrames + 2)	= nMID
-			marrFrameMapNames2(intCountMapperFrames + 2)	= WindowInfo(nMID, WIN_INFO_NAME)
+'			marrFrameMapIDs1(intCountMapperFrames + 1)	= nMID
+'			marrFrameMapNames1(intCountMapperFrames + 1)	= WindowInfo(nMID, WIN_INFO_NAME)
+'			marrFrameMapIDs2(intCountMapperFrames + 2)	= nMID
+'			marrFrameMapNames2(intCountMapperFrames + 2)	= WindowInfo(nMID, WIN_INFO_NAME)
+
+			Call ARRAYAddValueString(marrFrameMapNames1, WindowInfo(nMID, WIN_INFO_NAME))
+			Call ARRAYAddValueInteger(marrFrameMapIDs1, nMID)
+			Call ARRAYAddValueString(marrFrameMapNames2, WindowInfo(nMID, WIN_INFO_NAME))
+			Call ARRAYAddValueInteger(marrFrameMapIDs2, nMID)
 		End If
 	Next
 
-	Redim marrFrameMapNames1(intCountMapperFrames + 1)
-	Redim marrFrameMapNames2(intCountMapperFrames + 2)
+'	Redim marrFrameMapNames1(intCountMapperFrames + 1)
+'	Redim marrFrameMapNames2(intCountMapperFrames + 2)
 
 	' update popup menu	with list of layers in Layout
 	Alter Control CTRL_LST_LAYOUT_MAP_PRIMARY	Title from variable marrFrameMapNames1
@@ -1109,39 +1111,42 @@ dim	k, j, nNumFrames, intNumberOfLayer, nMID, nWID, intCountMapperFrames as inte
 		Note "No mapper frame found on layout window " + chr$(34) + WindowInfo(nWID, WIN_INFO_NAME) + chr$(34) + ". Please fix or choose a different Layout Window."
 		Alter control CTRL_LST_MAPPER_OR_LAYOUT value 1 ' change mapper/layout popup back to Mapper
 		Call Handler_WindowTypeClicked
-		exit sub
+		Exit Sub
 	ElseIf intCountMapperFrames = 1 then ' only 1 map frame in layout - no option to use a secondary map
 		Alter Control CTRL_LST_LAYOUT_MAP_SECONDARY Value 2
 		Alter Control CTRL_LST_LAYOUT_MAP_SECONDARY Disable
 	End If
 
-End sub
+End Sub
 
 '*******************************************************************************
 'Handler_GetLayersForMapFrame1
 '*******************************************************************************
 Sub Handler_GetLayersForMapFrame1
 
-dim k, j, intNumberOfLayer, nMID, intCountLayers as integer
+dim 	j, nLayer, nNumLayers, nMID, intCountLayers as integer
 
 	If ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY) = 0 Then
 		Exit Sub
 	End If
 
-	intNumberOfLayer	= 0
-	nMID				= marrFrameMapIDs1(ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY))
+	nNumLayers	= 0
+	nMID			= marrFrameMapIDs1(ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY))
+	Redim marrSite1TableNames(0)
 
-	If nMID = 0 Then
-		Redim marrSite1TableNames(intNumberOfLayer + 1)
-		marrSite1TableNames(1) = "- Select Layer -" ' first value in array is blank
-	Else
-		intNumberOfLayer = MapperInfo(nMID, MAPPER_INFO_LAYERS)
-		Redim marrSite1TableNames(intNumberOfLayer + 1)
-		marrSite1TableNames(1) = "- Select Layer -" ' first value in array is blank
-		For k = 1 to intNumberOfLayer
-			If LayerInfo(nMID, k, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then
+'	Redim marrSite1TableNames(nNumLayers + 1)
+'	marrSite1TableNames(1) = "- Select Layer -" ' first value in array is blank
+	Call ARRAYAddValueString(marrSite1TableNames, "- Select Layer -")
+
+
+	If nMID <> 0 Then
+		nNumLayers = MapperInfo(nMID, MAPPER_INFO_LAYERS)
+'
+		For nLayer = 1 to nNumLayers
+			If LayerInfo(nMID, nLayer, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then
 				intCountLayers						= intCountLayers + 1
-				marrSite1TableNames(intCountLayers + 1)	= LayerInfo(nMID, k, LAYER_INFO_NAME)
+				'marrSite1TableNames(intCountLayers + 1)	= LayerInfo(nMID, nLayer, LAYER_INFO_NAME)
+				Call ARRAYAddValueString(marrSite1TableNames, LayerInfo(nMID, nLayer, LAYER_INFO_NAME))
 			End If
 		Next
 	End If
@@ -1162,26 +1167,26 @@ End Sub
 '*******************************************************************************
 Sub Handler_GetLayersForMapFrame2
 
-Dim	k, j, intNumberOfLayer, nMID, intCountLayers as integer
+Dim	nLayer, j, nNumLayers, nMID, intCountLayers as integer
 
 	If ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY) = 0 Then
 		Exit Sub
 	End If
 
-	intNumberOfLayer	= 0
-	nMID				= marrFrameMapIDs2(ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY))
+	nNumLayers	= 0
+	nMID			= marrFrameMapIDs2(ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY))
+	Redim marrSite2TableNames(0)
+'	Redim marrSite2TableNames(nNumLayers + 1)
+'	marrSite2TableNames(1) = "- Select Layer -" ' first value in array is blank
+	Call ARRAYAddValueString(marrSite2TableNames, "- Select Layer -")
 
-	If nMID = 0 Then
-		Redim marrSite2TableNames(intNumberOfLayer + 1)
-		marrSite2TableNames(1) = "- Select Layer -" ' first value in array is blank
-	Else
-		intNumberOfLayer = MapperInfo(nMID, MAPPER_INFO_LAYERS)
-		Redim marrSite2TableNames(intNumberOfLayer + 1)
-		marrSite2TableNames(1) = "- Select Layer -" ' first value in array is blank
-		For k = 1 to intNumberOfLayer
-			If LayerInfo(nMID, k, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then
+	If nMID <> 0 Then
+		nNumLayers = MapperInfo(nMID, MAPPER_INFO_LAYERS)
+		For nLayer = 1 to nNumLayers
+			If LayerInfo(nMID, nLayer, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then
 				intCountLayers						= intCountLayers + 1
-				marrSite2TableNames(intCountLayers + 1)	= LayerInfo(nMID, k, LAYER_INFO_NAME)
+				'marrSite2TableNames(intCountLayers + 1)	= LayerInfo(nMID, nLayer, LAYER_INFO_NAME)
+				Call ARRAYAddValueString(marrSite2TableNames, LayerInfo(nMID, nLayer, LAYER_INFO_NAME))
 			End If
 		Next
 	End If
@@ -1200,10 +1205,12 @@ End Sub
 '*******************************************************************************
 'Handler_FileNameTypeClicked
 '*******************************************************************************
-sub Handler_FileNameTypeClicked
+Sub Handler_FileNameTypeClicked
 
 	If ReadControlValue(CTRL_LST_FILENAME_TYPES) = 1 Then
 		Alter Control CTRL_LST_FILENAME_COLUMN Enable
+		Note "This table does not contain any character fields. Please use either Counter or SiteID for naming your files"
+		Alter Control CTRL_LST_FILENAME_TYPES Value 2
 	Else
 		Alter Control CTRL_LST_FILENAME_COLUMN Disable
 	End If
@@ -1261,51 +1268,42 @@ End Sub
 '*******************************************************************************
 'SELECT COLUMN TO USE
 '*******************************************************************************
-sub Handler_Site1LayersClicked
+Sub Handler_Site1LayersClicked
 
-dim intNumberColumns, c, d, e, intSumValue as integer
-dim sTab, strColName, strCMD as string
+dim nNumCols, c, d, e, intSumValue as integer
+dim sTab, sColName, strCMD as string
 
 	If ReadControlValue(CTRL_LST_SITE1_TABLE_NAMES) > 1 then
 
 		sTab = marrSite1TableNames(ReadControlValue(CTRL_LST_SITE1_TABLE_NAMES))
-		intNumberColumns = NumCols(sTab)
-		'print "Checking table "+sTab
-		'print "Number of columns = "+intNumberColumns
+		nNumCols = NumCols(sTab)
+
 		Redim marrSite1ColNames(0)
 		Redim marrSite1CharColNames(0)
 
-		For c = 1 to intNumberColumns
-			'print "Checking col "+c
-			If ColumnInfo(sTab, "Col"+c, COL_INFO_TYPE) In (COL_TYPE_CHAR, COL_TYPE_INTEGER, COL_TYPE_SMALLINT, COL_TYPE_DECIMAL, COL_TYPE_FLOAT) Then
-				strColName = ColumnInfo(sTab,"Col"+c,COL_INFO_NAME)
-				'print "strColName = "+strColName
-				d = d +1
-				Redim marrSite1ColNames(d)
-				marrSite1ColNames(d)= strColName
-
-				' get unique string column values for potential filenames
-				If ColumnInfo(sTab, "Col"+c, COL_INFO_TYPE) = COL_TYPE_CHAR then
-					e = e+1
-					Redim marrSite1CharColNames(e)
-					marrSite1CharColNames(e)= strColName
-				End If
+		For c = 1 to nNumCols
+			sColName = ColumnInfo(sTab,"Col"+c,COL_INFO_NAME)
+			If ColumnInfo(sTab, sColName, COL_INFO_TYPE) In (COL_TYPE_CHAR, COL_TYPE_INTEGER, COL_TYPE_SMALLINT, COL_TYPE_DECIMAL, COL_TYPE_FLOAT) Then
+				Call ARRAYAddValueString(marrSite1ColNames, sColName)
+			End If
+			If ColumnInfo(sTab, sColName, COL_INFO_TYPE) = COL_TYPE_CHAR then
+				Call ARRAYAddValueString(marrSite1CharColNames, sColName)
 			End If
 		Next
 
 		If UBound(marrSite1CharColNames()) > 0 then
-			alter control CTRL_LST_FILENAME_COLUMN Title from variable marrSite1CharColNames()
-			alter Control CTRL_CMD_OK enable
-		Else
-			alter Control CTRL_CMD_OK disable
-			Note sTab + " does not contain any character fields with unique values. Please ensure table has at least one character column with unique values."
+			Alter Control CTRL_LST_FILENAME_COLUMN Title from variable marrSite1CharColNames()
+			Alter Control CTRL_CMD_OK enable
+'		Else
+'			Alter Control CTRL_CMD_OK disable
+'			Note sTab + " does not contain any character fields with unique values. Please ensure table has at least one character column with unique values."
 		End If
 
 		Alter Control CTRL_LST_SITE1_ID_COLS Title from variable marrSite1ColNames()
 
 	End If
 
-end sub
+end Sub
 
 '*******************************************************************************
 'SELECT COLUMN TO USE
@@ -1317,28 +1315,21 @@ End Sub
 '*******************************************************************************
 'SELECT COLUMN TO USE
 '*******************************************************************************
-sub Handler_Site2LayersClicked
+Sub Handler_Site2LayersClicked
 
-dim intNumberColumns, c, d, e, intSumValue as integer
-dim sTab, strColName, strCMD as string
+dim nNumCols, c as integer
+dim sTab, sColName as string
 
 	If ReadControlValue(CTRL_LST_SITE2_TABLE_NAMES) > 1 then
 
-		sTab = marrSite2TableNames(ReadControlValue(CTRL_LST_SITE2_TABLE_NAMES))
-		intNumberColumns = NumCols(sTab)
-		'print "Checking table "+sTab
-		'print "Number of columns = "+intNumberColumns
+		sTab		= marrSite2TableNames(ReadControlValue(CTRL_LST_SITE2_TABLE_NAMES))
+		nNumCols	= NumCols(sTab)
 		Redim marrSite2ColNames(0)
 
-		For c = 1 to intNumberColumns
-			'print "Checking col "+c
-'			If ColumnInfo(sTab, "Col"+c, COL_INFO_TYPE) In (COL_TYPE_CHAR, COL_TYPE_INTEGER, COL_TYPE_SMALLINT, COL_TYPE_DECIMAL, COL_TYPE_FLOAT) Then
-			If ColumnInfo(sTab, "Col"+c, COL_INFO_TYPE) In (COL_TYPE_CHAR, COL_TYPE_LARGEINT, COL_TYPE_INTEGER, COL_TYPE_SMALLINT) Then
-				strColName = ColumnInfo(sTab, "Col"+c, COL_INFO_NAME)
-				'print "strColName = "+strColName
-				d = d + 1
-				Redim marrSite2ColNames(d)
-				marrSite2ColNames(d)= strColName
+		For c = 1 to nNumCols
+			sColName = ColumnInfo(sTab, "Col"+c, COL_INFO_NAME)
+			If ColumnInfo(sTab, sColName, COL_INFO_TYPE) In (COL_TYPE_CHAR, COL_TYPE_LARGEINT, COL_TYPE_INTEGER, COL_TYPE_SMALLINT) Then
+				Call ARRAYAddValueString(marrSite2ColNames, sColName)
 			End If
 		Next
 
@@ -1346,7 +1337,7 @@ dim sTab, strColName, strCMD as string
 
 	End If
 
-end sub
+end Sub
 
 '*******************************************************************************
 'SELECT COLUMN TO USE
@@ -1418,13 +1409,32 @@ Function SMSDLGGetPDFPrinterDriver() As Integer
 End Function
 
 '**********************************************************************
+Sub SMSDLGLoadPDFPrinterDriverNames()
+
+	Redim marrPDFNames(3)
+	marrPDFNames(1) = "MapInfo PDF Printer Driver"
+	marrPDFNames(2) = "Adobe PDF"
+	marrPDFNames(3) = "PDF995"
+'	marrPDFNames(4) = "Microsoft Print to PDF"
+
+End Sub
+
+'**********************************************************************
 Function SMSDLGGetPDFPrinterDriver$() As String
 
-Dim sMIVersion As String
+Dim	sMIVersion As String,
+	nMIVersion As Integer
 
 	Do Case SMSDLGGetPDFPrinterDriver()
 		Case 1
-			sMIVersion				= format$(SystemInfo(SYS_INFO_MIVERSION)/100,",#.#")
+			nMIVersion	= SystemInfo(SYS_INFO_MIVERSION)
+			If nMIVersion >= 1900 Then
+				sMIVersion	= Str$(nMIVersion)
+			Else
+				Set Format Number "9,999.9"
+				sMIVersion	= Format$(nMIVersion/100,",#.#")
+				Set Format Number "Local"
+			End If
 			SMSDLGGetPDFPrinterDriver$	= "MapInfo PDF Printer Version " + sMIVersion + " x64"
 		Case 2
 			SMSDLGGetPDFPrinterDriver$	= "Adobe PDF"
@@ -1493,16 +1503,12 @@ Function SMSDLGQuerySiteTab(ByVal nLevel As Integer) As Logical
 	SMSDLGQuerySiteTab = FALSE
 
 	If SMSDLGExportMapWindow() Then
-'		Print "SMSDLGQuerySiteTab(" & nLevel & ") = FALSE: Exporting Map Window "
 		Exit Function
 	ElseIf SMSDLGGetSiteTab(nLevel) = "" Then
-'		Print "SMSDLGQuerySiteTab(" & nLevel & ") = FALSE: No Site Table Selected"
 		Exit Function
 	ElseIf SMSDLGGetSiteColumn(nLevel, "SITEID") = "" Then
-'		Print "SMSDLGQuerySiteTab(" & nLevel & ") = FALSE: NoSite Column Selected"
 		Exit Function
 	End If
-'	Print "SMSDLGQuerySiteTab = FALSE"
 	SMSDLGQuerySiteTab = TRUE
 End Function
 

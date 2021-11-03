@@ -31,10 +31,10 @@
 '
 '  Peter Horsbøll Møller
 '  Updated Oct 2021 version 2.0,
-'		- added support for getting values from any column using a Smart Text calling a published function, SMGetColumnValue
+'		- added support for getting values from any column using a Smart Text calling a published function, MSFUNCGetSiteColumnValue
 '		- added support for overview map, a secondary map
 '		- a Site Layer can also be selected from the secondary map
-'		- Settings are saved between session and reused across dialog, currently not the windows and site layers
+'		- Settings are saved between session and reused across dialog openings, currently not the windows and site layers
 '		- layouts and maps are no longer cloned, and the tool does not create a large number of map/layout windows. It changes the map selected
 '		- Values in the Site ID column no longer need to unique. Records are grouped by the selected column
 '		- Supports 3 naming types: Site ID, Counter or another Char column
@@ -58,7 +58,7 @@ Include "SMSDLG_SiteMapperSetup.def"
 
 Define PATH_IMAGES		ApplicationDirectory$() & "_Icons\"
 Define xProgram 		"Site Mapper"
-Define xVersion 		"2.0.1"
+Define xVersion 		"2.0.3"
 Define xYear			"2021"
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "SiteMapper.ini"
@@ -256,10 +256,11 @@ End Sub
 Sub SMProcessMaps
 
 Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
-	sRowID, sSiteID, sFileName, msOrigWindowTitle, strNewText, strOrientation, strCMD, strTemp, strFoundText as string,
-	aSiteID, aFileName as alias,
+	sRowID, sSiteID, sFileName, msOrigWindowTitle, strNewText, strOrientation, strCMD, strTemp, strFoundText As String,
+	aSiteID, aFileName As Alias,
 	oMBR, oPoint As Object,
-	floPageSize as float
+	bSiteIDIsCharColumn As Logical,
+	floPageSize As Float
 
 	' >>>>>>>>>>>>>>>>>> This section creates a Map and Optional Layout for each site <<<<<<<<<<<<<<<<<<<<
 	Call PrintLog("Processing Main " & SMSDLGMainWindowType$() & " Window " & WindowInfo(SMSDLGMainWID(), WIN_INFO_NAME), TRUE, TRUE)
@@ -298,7 +299,9 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 	End If
 
 	' Check if user wants to proceed ...
-	If not Ask("This process will create " + nNumSites + " maps" + chr$(10) + chr$(10) + "Are you sure you want to proceed?", "Yes", "No") then
+	If not Ask("This process will create " + nNumSites + " maps."
+				+ chr$(10) + "Make sure you have closed any files this process wil recreated."
+				+ chr$(10) + "Are you sure you want to proceed?", "Yes", "No") then
 		Exit Sub
 	End If
 
@@ -332,7 +335,8 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 		End If
 	Next
 
-	nRowIDCharLen	= Minimum(3, Len(Str$(nNumSites)))		'Minimum 000 -> 001.pdf
+	nRowIDCharLen		= Minimum(3, Len(Str$(nNumSites)))		'Minimum 000 -> 001.pdf
+	bSiteIDIsCharColumn	= (ColumnInfo("_SEL_SITE_IDS", "SITEID", COL_INFO_TYPE) = COL_TYPE_CHAR)
 	' Create map for each row in grouped table ...
 	Fetch First from _SEL_SITE_IDS
 	Do Until EOT(_SEL_SITE_IDS)
@@ -340,7 +344,11 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 		OnError goto BadRecord
 
 		nRowID			= _SEL_SITE_IDS.ROWID
-		sSiteID			= _SEL_SITE_IDS.SITEID
+		If bSiteIDIsCharColumn Then
+			sSiteID		= _SEL_SITE_IDS.SITEID
+		Else
+			sSiteID		= Str$(_SEL_SITE_IDS.SITEID)
+		End If
 
 		sRowID			= Right$(String$(nRowIDCharLen, "0") & nRowID, nRowIDCharLen) '-> 001, 002, 003 etc
 		strThisSiteTable(1) = "q1_" + sRowID
@@ -378,11 +386,17 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 		For nLevel = 1 To 2
 			If SMSDLGQuerySiteTab(nLevel) Then
 				aSiteID	= SMSDLGGetSiteTab(nLevel) & "." & SMSDLGGetSiteColumn(1, "SITEID")
-				Select *
-					From SMSDLGGetSiteTab(nLevel)
-					Where aSiteID = sSiteID
-					Into strThisSiteTable(nLevel) NoSelect
-
+				If bSiteIDIsCharColumn Then
+					Select *
+						From SMSDLGGetSiteTab(nLevel)
+						Where aSiteID = sSiteID
+						Into strThisSiteTable(nLevel) NoSelect
+				Else
+					Select *
+						From SMSDLGGetSiteTab(nLevel)
+						Where aSiteID = Val(sSiteID)
+						Into strThisSiteTable(nLevel) NoSelect
+				End If
 				Call PrintLog("     " & nRowID & ": Query: " & strThisSiteTable(nLevel) & " Records: " & TableInfo(strThisSiteTable(nLevel), TAB_INFO_NROWS), TRUE, TRUE)
 			End If
 
@@ -1191,7 +1205,7 @@ Function MSFUNCGetSiteColumnValue(  ByVal sCol As String
 	Exit Function
 '-------------------------
 ErrorOccured:
-	Note Err() & " " & Error$() & " MSFUNCGetSiteColumnValue: Table " & sTab & " Column: " & sCol
+	Note Err() & " " & Error$() & " MSFUNCGetSiteColumnValue: Column: " & sCol
 
 End Function
 
@@ -1210,7 +1224,7 @@ Function MSFUNCGetSiteColumnValueErr(  ByVal sCol As String
 	Exit Function
 '-------------------------
 ErrorOccured:
-	Note Err() & " " & Error$() & " MSFUNCGetSiteColumnValueErr: Table " & sTab & " Column: " & sCol
+	Note Err() & " " & Error$() & " MSFUNCGetSiteColumnValueErr: Column: " & sCol
 
 End Function
 
