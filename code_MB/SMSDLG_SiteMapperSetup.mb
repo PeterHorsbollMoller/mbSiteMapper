@@ -5,9 +5,14 @@ Include "Library\ConfigFileLib.def"
 
 Include "SMSDLG_SiteMapperSetup.def"
 
-Define	CTRL_LBL_MAPPER_OR_LAYOUT		8
-Define	CTRL_LST_MAPPER_OR_LAYOUT		14
-Define	CTRL_LST_WINDOW_NAMES			15
+Define	CTRL_LBL_MAPPER_OR_LAYOUT		10
+Define	CTRL_LST_MAPPER_OR_LAYOUT		11
+Define	CTRL_LST_WINDOW_NAMES			12
+Define	CTRL_CMD_OK					20
+Define	CTRL_LBL_LAYOUT_MAP_PRIMARY		101
+Define	CTRL_LST_LAYOUT_MAP_PRIMARY		102
+Define	CTRL_LBL_LAYOUT_MAP_SECONDARY		111
+Define	CTRL_LST_LAYOUT_MAP_SECONDARY		112
 Define	CTRL_LST_SITE1_TABLE_NAMES		1001
 Define	CTRL_LST_SITE1_ID_COLS			1002
 Define	CTRL_LST_SITE2_TABLE_NAMES		2001
@@ -30,31 +35,30 @@ Define	CTRL_LST_ZOOM_TYPE_2			2020
 Define	CTRL_LBL_ZOOM_WIDTH_2			2021
 Define	CTRL_TXT_ZOOM_WIDTH_2			2022
 Define	CTRL_CHK_KEEP_CURRENT_ZOOM_2		2023
-Define	CTRL_LBL_FILENAME_COLUMN			27
-Define	CTRL_LST_FILENAME_COLUMN			28
-Define	CTRL_CHK_USE_PROPER_CASE			35
-Define	CTRL_CHK_CREATE_JPG				20
-Define	CTRL_CHK_CREATE_PDF				21
-Define	CTRL_CHK_CREATE_PNG				25
-Define	CTRL_LBL_IMAGE_RESOLUTION		52
-Define	CTRL_LST_IMAGE_RESOLUTION		53
-Define	CTRL_LBL_PDF_DRIVERS			50
-Define	CTRL_LST_PDF_DRIVERS			51
-Define	CTRL_LBL_OUTPUT_FOLDER			22
-Define	CTRL_TXT_OUTPUT_FOLDER			23
-Define	CTRL_CMD_OUTPUT_FOLDER_BROWSE		24
-Define	CTRL_LBL_ADD_VALUES_TO_LAYOUT		56
-Define	CTRL_CHK_CLOSE_CLONED_WINDOWS		33
-Define	CTRL_CMD_OK					65
-Define	CTRL_LBL_DELAY_ON_CLOSE			54
-Define	CTRL_LST_DELAY_ON_CLOSE			55
-Define	CTRL_LBL_LAYOUT_MAP_PRIMARY		101
-Define	CTRL_LST_LAYOUT_MAP_PRIMARY		102
-Define	CTRL_LBL_LAYOUT_MAP_SECONDARY		111
-Define	CTRL_LST_LAYOUT_MAP_SECONDARY		112
-Define	CTRL_LBL_UNIQUE_CHAR_VALUES		29
-Define	CTRL_CHK_UNIQUE_CHAR_VALUES		30
-Define	CTRL_LST_FILENAME_TYPES			26
+Define	CTRL_LST_FILENAME_TYPES			200
+Define	CTRL_LBL_FILENAME_COLUMN			201
+Define	CTRL_LST_FILENAME_COLUMN			202
+Define	CTRL_LBL_UNIQUE_CHAR_VALUES		205
+Define	CTRL_CHK_UNIQUE_CHAR_VALUES		206
+Define	CTRL_CHK_USE_PROPER_CASE			210
+Define	CTRL_CHK_CREATE_JPG				220
+Define	CTRL_CHK_CREATE_PDF				221
+Define	CTRL_CHK_CREATE_PNG				222
+Define	CTRL_LBL_IMAGE_RESOLUTION		230
+Define	CTRL_LST_IMAGE_RESOLUTION		231
+Define	CTRL_LBL_PDF_DRIVERS			240
+Define	CTRL_LST_PDF_DRIVERS			241
+Define	CTRL_LBL_OUTPUT_FOLDER			250
+Define	CTRL_TXT_OUTPUT_FOLDER			251
+Define	CTRL_CMD_OUTPUT_FOLDER_BROWSE		252
+Define	CTRL_LBL_ADD_VALUES_TO_LAYOUT		300
+Define	CTRL_LBL_ADD_VALUES_TO_LAYOUT2	301
+'Define	CTRL_CHK_CLOSE_CLONED_WINDOWS		310
+Define	CTRL_LBL_DELAY_ON_NEXTSITE		400
+Define	CTRL_LST_DELAY_ON_NEXTSITE		401
+Define	CTRL_LBL_DELAY_ON_PRINT			410
+Define	CTRL_LST_DELAY_ON_PRINT			411
+Define	CTRL_CHK_CLONE_MAIN_WINDOW		500
 
 Declare Sub Handler_OnDialogLoad
 Declare Sub Handler_OKClicked
@@ -80,16 +84,17 @@ Declare Sub Handler_Site1AddLayerClicked
 Declare Sub Handler_Site2AddLayerClicked
 Declare Sub Handler_CreatePDFClicked
 Declare Sub Handler_CreateImageClicked
-Declare Sub Handler_UseDelayClicked
-Declare Sub Handler_ShowDelayInfoDlg
+'Declare Sub Handler_CloseClonedWinClicked
+Declare Sub Handler_ShowDelayNextSiteDlg
+Declare Sub Handler_ShowDelayPrintDlg
 Declare Sub Handler_BrowseFolderClicked
 
 Declare Sub SMSDLGLoadPDFPrinterDriverNames()
 
 Declare Method FILEBrowseForFolder
 	Class "FILELib.MIController"  Lib "FILELib.dll" Alias "BrowseForFolder"
-	(ByVal sDescription As String	'Text to display in the dialog
-		, ByVal sFolder As String		'Start folder to use in the dialog
+	(ByVal sDescription As String		'Text to display in the dialog
+		, ByVal sFolder As String	'Start folder to use in the dialog
 		) As String
 
 
@@ -100,14 +105,16 @@ Dim	marrFrameMapIDs1(), marrFrameMapIDs2() As Integer
 Dim	marrSite1ColNamesUnique() as string
 Dim	marrPDFNames() As String
 
-Dim	mnWindowType, mnSelectedWindowItem, marrSelectedMapperWID(2), mnSelectedLayoutWID, mnPDFDriver, mnImageResolution, mnDelayMillisecs, mnFileNameType As Integer,
+Dim	mnWindowType, mnSelectedWindowItem, marrSelectedMapperWID(2), mnSelectedLayoutWID, mnPDFDriver, mnImageResolution, mnFileNameType As Integer,
+	mnDelayNextSiteItem, mnDelayPrintItem As Integer,
 	marrSiteTab(2), marrColumnSiteID(2), msColumnFileName As String,
 	msOutputFolder As String,
 	marrZoomWidth(2) As Float,
 	marrZoomType(2) As Integer,
 	marrKeepZoom(2), marrAddSiteAsLayer(2), marrStyleOverrideSiteLayer(2), marrTurnOffSiteLayer(2) As Logical,
-	mbPrintJPG, mbPrintPNG, mbPrintPDF, mbWinTitleAndFileNameProperCase, mbCloseClonedWindows As Logical,
-	mbExportMapWindow As Logical
+	mbPrintJPG, mbPrintPNG, mbPrintPDF, mbWinTitleAndFileNameProperCaseAs As Logical,
+'	mbCloseClonedWindows As Logical,
+	mbCreateCopiesOfMainWindow, mbExportMapWindow As Logical
 '*******************************************************************************
 ' OpenDialog PROCEDURE
 '*******************************************************************************
@@ -533,6 +540,12 @@ SMSDLG_SiteMapperSetup = FALSE
 			Width 160  Height 80
 
 		'****************************************************************
+		Control Checkbox
+			Position 6,290		ID CTRL_CHK_CLONE_MAIN_WINDOW
+			Title "Clone main window for each 'child' site and keep these cloned windows open."
+			Value SMSDLGCreateCopiesOfMainWindow()
+
+		'****************************************************************
 		Control StaticText
 			Title "To add values from any column in the site table on the layout as text (such as the map title), you can"
 				+ " use Smart Text in a text frame on to the layout. The Smart Text should be '$mb{SMGetSiteValue(""City"")}'"
@@ -541,51 +554,76 @@ SMSDLG_SiteMapperSetup = FALSE
 				+ " return an empty string until Site Mapper starts processing the output. For a record with 'New York'"
 				+ " in column 'City', the text 'City: $mb{SMGetSiteValue(""City"", 1, 0)}' would show as 'City: New York'"
 				+ " Make sure the text frame is large enough to accommodate the full text from the Site table."
-			Position 5, 290		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT		'56
+			Position 5, 305		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT
 			Width 700 height 35
 
-		'****************************************************************
-		Control Checkbox
-			Position 6,335		ID CTRL_CHK_CLOSE_CLONED_WINDOWS		'33
-			Width 10
-			Title ""
-			Value FALSE
-			Calling Handler_UseDelayClicked
-			Hide
 		Control StaticText
-			Title "Close cloned mapper or layout window after exporting. Recommended if you are generating a large number of maps. "+
-				"Untick if you want to keep the windows open."
-			Position 25,330
-			Width 300 Height 18
-			Hide
+			Title "Or you can add an "
+				+ "empty text frame on to the layout and then include the column number in the NAME for the text frame. "
+				+ "The column number must be in the format '<COL#>', where # is the column number (note '<COL#>' is case "
+				+ "sensitive). For example the text frame name could be 'State of <COL5> Map' and the text frame will be "
+				+ "updated to 'State of New York Map' if column 5 contains the value 'New York'. Note the text frame name "
+				+ "is modified by right clicking on the frame and selecting Frame Properties. Make sure the empty text "
+				+ "frame is large enough to accommodate the full text."
+			Position 5, 345		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT2
+			Width 700 height 35
+			ID	56
+
+		'****************************************************************
+'		Control Checkbox
+'			Position 6,380		ID CTRL_CHK_CLOSE_CLONED_WINDOWS
+'			Width 10
+'			Title ""
+'			Value FALSE
+'			Calling Handler_CloseClonedWinClicked
+'			Hide
+'		Control StaticText
+'			Title "Close cloned mapper or layout window after exporting. Recommended if you are generating a large number of maps. "+
+'				"Untick if you want to keep the windows open."
+'			Position 25,375
+'			Width 300 Height 18
+'			Hide
 
 		Control StaticText
-			Title "Add delay before closing:"
-			Position 340,337		ID CTRL_LBL_DELAY_ON_CLOSE	'54
-'			Width 83
-			Hide
+			Title "Add delay before next 'child' site:"
+			Position 170,383		ID CTRL_LBL_DELAY_ON_NEXTSITE
+'			Hide
 		Control PopupMenu
-			Title "None;1 secs;2 secs;3 secs"
-			Position 430,335		ID CTRL_LST_DELAY_ON_CLOSE	'55
+			Title "None;1 sec;2 secs;3 secs"
+			Position 290,381		ID CTRL_LST_DELAY_ON_NEXTSITE
 			Width 40
-			Value 2
-			Hide
+			Value SMSDLGGetDelayNextSiteItem()
+'			Hide
 		Control Button
 			Title "?"
-			Position 475,334
+			Position 332,380
 			Width 15		'Height 13
-			calling Handler_ShowDelayInfoDlg
-			Hide
+			calling Handler_ShowDelayNextSiteDlg
+'			Hide
+
+		Control StaticText
+			Title "Add delay before printing:"
+			Position 360,383		ID CTRL_LBL_DELAY_ON_PRINT
+		Control PopupMenu
+			Title "None;1 sec;2 secs;3 secs"
+			Position 460,381		ID CTRL_LST_DELAY_ON_PRINT
+			Width 40
+			Value SMSDLGGetDelayPrintItem()
+		Control Button
+			Title "?"
+			Position 502,380
+			Width 15
+			calling Handler_ShowDelayPrintDlg
 
 		' Buttons
 		Control OKButton
-			Position 575,335		ID CTRL_CMD_OK			'65
+			Position 575,381		ID CTRL_CMD_OK
 			calling Handler_OKClicked
 			Width 60
 			Disable
 		Control CancelButton
 			Title "Close"
-			Position 640,335
+			Position 640,381
 			Width 60
 			calling Handler_DialogCancelClicked
 
@@ -618,15 +656,15 @@ Sub Handler_OnDialogLoad
 
 	Call Handler_OnZoomType1Clicked
 	Call Handler_OnZoomType2Clicked
-'	Call Handler_UseSpecificZoom1Clicked
-'	Call Handler_UseSpecificZoom2Clicked
+	Call Handler_UseSpecificZoom1Clicked
+	Call Handler_UseSpecificZoom2Clicked
 
 	Call Handler_CreatePDFClicked
 	Call Handler_CreateImageClicked
 
 	Call Handler_FileNameTypeClicked
 
-	Call Handler_UseDelayClicked
+'	Call Handler_CloseClonedWinClicked
 
 End Sub
 
@@ -765,19 +803,14 @@ Sub Handler_OKClicked
 
 	'******* CLONE OPTIONS SETTINGS ***************************************************
 	' Read Control Value for close Map and Layout after export
-	mbCloseClonedWindows = ReadControlValue(CTRL_CHK_CLOSE_CLONED_WINDOWS)
+'	mbCloseClonedWindows		= ReadControlValue(CTRL_CHK_CLOSE_CLONED_WINDOWS)
 
 	'Read Control Value for delay
-	Do Case ReadControlValue(CTRL_LST_DELAY_ON_CLOSE)
-		Case 1
-			mnDelayMillisecs = 0
-		Case 2
-			mnDelayMillisecs = 1000
-		Case 3
-			mnDelayMillisecs = 2000
-		Case 4
-			mnDelayMillisecs = 3000
-	End Case
+	mnDelayNextSiteItem			= ReadControlValue(CTRL_LST_DELAY_ON_NEXTSITE)
+	mnDelayPrintItem			= ReadControlValue(CTRL_LST_DELAY_ON_PRINT)
+
+	'Read Control Value for Cloning Main Window
+	mbCreateCopiesOfMainWindow	= ReadControlValue(CTRL_CHK_CLONE_MAIN_WINDOW)
 
 End Sub
 
@@ -790,7 +823,7 @@ Sub Handler_DialogCancelClicked
 End Sub
 
 '*******************************************************************************
-'Handler_UseDelayClicked
+'Handler_LayoutMap1Clicked
 '*******************************************************************************
 Sub Handler_LayoutMap1Clicked
 
@@ -799,7 +832,7 @@ Sub Handler_LayoutMap1Clicked
 End Sub
 
 '*******************************************************************************
-'Handler_UseDelayClicked
+'Handler_LayoutMap2Clicked
 '*******************************************************************************
 Sub Handler_LayoutMap2Clicked
 
@@ -818,6 +851,7 @@ Sub Handler_LayoutMap2Clicked
 		Alter Control CTRL_LST_ZOOM_TYPE_2			Enable
 		Alter Control CTRL_LBL_ZOOM_WIDTH_2		Enable
 		Alter Control CTRL_TXT_ZOOM_WIDTH_2		Enable
+		Call Handler_OnZoomType2Clicked
 
 		Alter Control CTRL_LST_SITE2_TABLE_NAMES 	Enable
 		Alter Control CTRL_LST_SITE2_ID_COLS	 	Enable
@@ -828,19 +862,19 @@ Sub Handler_LayoutMap2Clicked
 End Sub
 
 '*******************************************************************************
-'Handler_UseDelayClicked
+'Handler_CloseClonedWinClicked
 '*******************************************************************************
-Sub Handler_UseDelayClicked
-
-	If ReadControlValue(CTRL_CHK_CLOSE_CLONED_WINDOWS) = 1 then
-		alter Control CTRL_LBL_DELAY_ON_CLOSE enable
-		alter Control CTRL_LST_DELAY_ON_CLOSE enable
-	Else
-		alter Control CTRL_LBL_DELAY_ON_CLOSE Disable
-		alter Control CTRL_LST_DELAY_ON_CLOSE Disable
-	End If
-
-End Sub
+'Sub Handler_CloseClonedWinClicked
+'
+'	If ReadControlValue(CTRL_CHK_CLOSE_CLONED_WINDOWS) = 1 then
+'		alter Control CTRL_LBL_DELAY_ON_NEXTSITE enable
+'		alter Control CTRL_LST_DELAY_ON_NEXTSITE enable
+'	Else
+'		alter Control CTRL_LBL_DELAY_ON_NEXTSITE Disable
+'		alter Control CTRL_LST_DELAY_ON_NEXTSITE Disable
+'	End If
+'
+'End Sub
 '*******************************************************************************
 'Handler_OnZoomType1Clicked
 '*******************************************************************************
@@ -916,20 +950,42 @@ Sub Handler_Site2AddLayerClicked
 End Sub
 
 '*******************************************************************************
-'Handler_ShowDelayInfoDlg
+'Handler_ShowDelayNextSiteDlg
 '*******************************************************************************
-Sub Handler_ShowDelayInfoDlg
+Sub Handler_ShowDelayNextSiteDlg
 
 	Dialog
 		Title "What's this"
 			Width 200	Height 100
 
 		Control StaticText
-			Title "This control allows you to set a short delay"+chr$(13)+
-			"before closing the Mapper/Layout window in order"+chr$(13)+
-			"to prevent the window being closed by the tool"+chr$(13)+
-			"before the PDF driver has finished exporting the map."+chr$(13)+
+			Title "This control allows you to set a short delay" + chr$(13) +
+			"before continuing to the next site to be printed" + chr$(13) +
+			"before the PDF driver has finished exporting the map." + chr$(13) +
 			"Use this setting if the tool appears to end prematurely."
+			Position 10,10
+			Width 185 Height 55
+
+		Control OKButton
+			Position 78, 70
+
+End Sub
+
+'*******************************************************************************
+'Handler_ShowDelayPrintDlg
+'*******************************************************************************
+Sub Handler_ShowDelayPrintDlg
+
+	Dialog
+		Title "What's this"
+			Width 200	Height 100
+
+		Control StaticText
+			Title "This control allows you to set a short delay" + chr$(13) +
+			"before printing the Mapper/Layout window in order" + chr$(13) +
+			"to prevent the window not being fully updated" + chr$(13) +
+			"before the image file is being exported." + chr$(13) +
+			"Use this setting if the result appears to be incomplete."
 			Position 10,10
 			Width 185 Height 55
 
@@ -1352,6 +1408,11 @@ Function SMSDLGExportMapWindow() As Logical
 End Function
 
 '**********************************************************************
+Function SMSDLGExportLayoutWindow() As Logical
+	SMSDLGExportLayoutWindow = (Not SMSDLGExportMapWindow())
+End Function
+
+'**********************************************************************
 Function SMSDLGMainWID() As Integer
 	If SMSDLGExportMapWindow() Then
 		SMSDLGMainWID	= SMSDLGSelectedMapperWID(1)
@@ -1411,8 +1472,20 @@ End Function
 '**********************************************************************
 Sub SMSDLGLoadPDFPrinterDriverNames()
 
+Dim	sMIVersion As String,
+	nMIVersion As Integer
+
+	nMIVersion	= SystemInfo(SYS_INFO_MIVERSION)
+	If nMIVersion >= 1900 Then
+		sMIVersion	= Str$(nMIVersion)
+	Else
+		Set Format Number "9,999.9"
+		sMIVersion	= Format$(nMIVersion/100,",#.#")
+		Set Format Number "Local"
+	End If
+
 	Redim marrPDFNames(3)
-	marrPDFNames(1) = "MapInfo PDF Printer Driver"
+	marrPDFNames(1) = "MapInfo PDF Printer Version " + sMIVersion + " x64"
 	marrPDFNames(2) = "Adobe PDF"
 	marrPDFNames(3) = "PDF995"
 '	marrPDFNames(4) = "Microsoft Print to PDF"
@@ -1440,6 +1513,8 @@ Dim	sMIVersion As String,
 			SMSDLGGetPDFPrinterDriver$	= "Adobe PDF"
 		Case 3
 			SMSDLGGetPDFPrinterDriver$	= "PDF995"
+'		Case 4
+'			SMSDLGGetPDFPrinterDriver$	= "Microsoft Print to PDF"
 	End Case
 End Function
 
@@ -1601,18 +1676,65 @@ Function SMSDLGUseProperCase(ByVal sType As String) As Logical	'"MapTitle", "Lay
 End Function
 
 '**********************************************************************
-Function SMSDLGCloseClonedWindow() As Logical
-	SMSDLGCloseClonedWindow = mbCloseClonedWindows
+'Function SMSDLGCloseClonedWindow() As Logical
+'	SMSDLGCloseClonedWindow = mbCloseClonedWindows
+'End Function
+
+'**********************************************************************
+Function SMSDLGGetDelayNextSiteItem() As Integer
+	If mnDelayNextSiteItem = 0 Then
+		mnDelayNextSiteItem = 1
+	End If
+	SMSDLGGetDelayNextSiteItem = mnDelayNextSiteItem
+End Function
+'**********************************************************************
+Function SMSDLGGetDelayNextSiteMiliSecs() As Integer
+	Do Case SMSDLGGetDelayNextSiteItem()
+		Case 1
+			SMSDLGGetDelayNextSiteMiliSecs = 0
+		Case 2
+			SMSDLGGetDelayNextSiteMiliSecs = 1000
+		Case 3
+			SMSDLGGetDelayNextSiteMiliSecs = 2000
+		Case 4
+			SMSDLGGetDelayNextSiteMiliSecs = 3000
+	End Case
+End Function
+'**********************************************************************
+Function SMSDLGDelayOnNextSite() As Logical
+	SMSDLGDelayOnNextSite = (SMSDLGGetDelayNextSiteItem() > 1)
 End Function
 
 '**********************************************************************
-Function SMSDLGGetDelayCloseMiliSecs() As Integer
-	SMSDLGGetDelayCloseMiliSecs = mnDelayMillisecs
+Function SMSDLGGetDelayPrintItem() As Integer
+	If mnDelayPrintItem = 0 Then
+		mnDelayPrintItem = 1
+	End If
+	SMSDLGGetDelayPrintItem = mnDelayPrintItem
 End Function
 '**********************************************************************
-Function SMSDLGDelayOnCloseClonedWindow() As Logical
-	SMSDLGDelayOnCloseClonedWindow = (SMSDLGGetDelayCloseMiliSecs() = 0)
+Function SMSDLGGetDelayPrintMiliSecs() As Integer
+	Do Case SMSDLGGetDelayPrintItem()
+		Case 1
+			SMSDLGGetDelayPrintMiliSecs = 0
+		Case 2
+			SMSDLGGetDelayPrintMiliSecs = 1000
+		Case 3
+			SMSDLGGetDelayPrintMiliSecs = 2000
+		Case 4
+			SMSDLGGetDelayPrintMiliSecs = 3000
+	End Case
 End Function
+'**********************************************************************
+Function SMSDLGDelayOnPrintWindow() As Logical
+	SMSDLGDelayOnPrintWindow = (SMSDLGGetDelayPrintItem() > 1)
+End Function
+
+'**********************************************************************
+Function SMSDLGCreateCopiesOfMainWindow() As Logical
+	SMSDLGCreateCopiesOfMainWindow = mbCreateCopiesOfMainWindow
+End Function
+
 
 '**********************************************************************
 '**********************************************************************
@@ -1627,6 +1749,11 @@ Dim	nLevel As Integer
 	Call CONFIGWriteKey(sFile, "OUTPUT", "RESOLUTION", Str$(SMSDLGGetImageResolution()))
 	Call CONFIGWriteKey(sFile, "OUTPUT", "FILENAMETYPE", Str$(SMSDLGGetFileNameType()))
 	Call CONFIGWriteKey(sFile, "OUTPUT", "OUTPUTFOLDER", SMSDLGGetOutputFolder())
+
+
+	Call CONFIGWriteKey(sFile, "OUTPUT", "WAITONNEXTSITE", Str$(SMSDLGGetDelayNextSiteItem()))
+	Call CONFIGWriteKey(sFile, "OUTPUT", "WAITONPRINT", Str$(SMSDLGGetDelayPrintItem()))
+	Call CONFIGWriteKey(sFile, "OUTPUT", "CLONEMAINWINDOW", IIf(SMSDLGCreateCopiesOfMainWindow(), 1, 0))
 
 	For nLevel = 1 to 2
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "ADDLAYER", IIf(SMSDLGAddSiteAsLayer(nLevel), 1, 0))
@@ -1650,15 +1777,20 @@ Dim	nLevel As Integer
 		Exit Sub
 	End If
 
-	mbPrintJPG		= (CONFIGReadKey(sFile, "OUTPUT", "JPG") = "1")
-	mbPrintPNG		= (CONFIGReadKey(sFile, "OUTPUT", "PNG") = "1")
-	mbPrintPDF		= (CONFIGReadKey(sFile, "OUTPUT", "PDF") = "1")
+	mbPrintJPG				= (CONFIGReadKey(sFile, "OUTPUT", "JPG") = "1")
+	mbPrintPNG				= (CONFIGReadKey(sFile, "OUTPUT", "PNG") = "1")
+	mbPrintPDF				= (CONFIGReadKey(sFile, "OUTPUT", "PDF") = "1")
 
-	mnPDFDriver		= Val(CONFIGReadKey(sFile, "OUTPUT", "PDFDRIVER"))
-	mnImageResolution	= Val(CONFIGReadKey(sFile, "OUTPUT", "RESOLUTION"))
-	mnFileNameType		= Val(CONFIGReadKey(sFile, "OUTPUT", "FILENAMETYPE"))
+	mnPDFDriver				= Val(CONFIGReadKey(sFile, "OUTPUT", "PDFDRIVER"))
+	mnImageResolution			= Val(CONFIGReadKey(sFile, "OUTPUT", "RESOLUTION"))
+	mnFileNameType				= Val(CONFIGReadKey(sFile, "OUTPUT", "FILENAMETYPE"))
 
-	msOutputFolder		= CONFIGReadKey(sFile, "OUTPUT", "OUTPUTFOLDER")
+	msOutputFolder				= CONFIGReadKey(sFile, "OUTPUT", "OUTPUTFOLDER")
+
+	mnDelayNextSiteItem			= Val(CONFIGReadKey(sFile, "OUTPUT", "WAITONNEXTSITE"))
+	mnDelayPrintItem			= Val(CONFIGReadKey(sFile, "OUTPUT", "WAITONPRINT"))
+
+	mbCreateCopiesOfMainWindow	= (CONFIGReadKey(sFile, "OUTPUT", "CLONEMAINWINDOW") = "1")
 
 	For nLevel = 1 to 2
 		marrAddSiteAsLayer(nLevel)		= (CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "ADDLAYER") = "1")

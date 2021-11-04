@@ -4,6 +4,7 @@ Declare Sub SMSDLGSaveUserSettings(ByVal sFile As String)
 Declare Sub SMSDLGLoadUserSettings(ByVal sFile As String)
 
 Declare Function SMSDLGExportMapWindow() As Logical
+Declare Function SMSDLGExportLayoutWindow() As Logical
 Declare Function SMSDLGMainWID() As Integer
 Declare Function SMSDLGMainWindowType$() As String
 Declare Function SMSDLGSelectedMapperWID(ByVal nLevel As Integer) As Integer
@@ -32,6 +33,12 @@ Declare Function SMSDLGGetZoomType(ByVal nLevel As Integer) As Logical
 
 Declare Function SMSDLGUseProperCase(ByVal sType As String) As Logical	'"MapTitle", "LayoutTitle", "FileName" ' Currently all use the same settings
 
-Declare Function SMSDLGCloseClonedWindow() As Logical
-Declare Function SMSDLGGetDelayCloseMiliSecs() As Integer
-Declare Function SMSDLGDelayOnCloseClonedWindow() As Logical
+'Declare Function SMSDLGCloseClonedWindow() As Logical
+Declare Function SMSDLGGetDelayNextSiteItem() As Integer
+Declare Function SMSDLGGetDelayNextSiteMiliSecs() As Integer
+Declare Function SMSDLGDelayOnNextSite() As Logical
+Declare Function SMSDLGGetDelayPrintItem() As Integer
+Declare Function SMSDLGGetDelayPrintMiliSecs() As Integer
+Declare Function SMSDLGDelayOnPrintWindow() As Logical
+
+Declare Function SMSDLGCreateCopiesOfMainWindow() As Logical

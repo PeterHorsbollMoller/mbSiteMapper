@@ -39,6 +39,13 @@
 '		- Values in the Site ID column no longer need to unique. Records are grouped by the selected column
 '		- Supports 3 naming types: Site ID, Counter or another Char column
 '		- Support adding the SiteMapper control to Home, Layout and Custom tab
+' Updated Nov 2021 version 2.1
+'		- brought back support for cloning/keeping a copy of the maps/layouts on screen
+'		- this also includes crystalizing smart text for accessing attribute data
+'		- Fixed an issue where some controls weren't disabled as they should
+'		- brought back support for using <COL#> in Frame Name to add attributes to the layout
+'		- brought back delay before moving onto next site
+'		- added support for waiting 1-3 secs before outputting the resulting map/layout
 '*********************************************************
 
 include "MAPBASIC.DEF"
@@ -58,11 +65,20 @@ Include "SMSDLG_SiteMapperSetup.def"
 
 Define PATH_IMAGES		ApplicationDirectory$() & "_Icons\"
 Define xProgram 		"Site Mapper"
-Define xVersion 		"2.0.3"
+Define xVersion 		"2.1.0"
 Define xYear			"2021"
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "SiteMapper.ini"
 Define FILE_INI_RIBBON	ApplicationDirectory$() & "SiteMapperRibbon.ini"
+
+Type LAYOUT_TEXT_FRAME
+	nFrameID		As Integer
+	sText		As String
+	sSmartText	As String
+	sFrameName	As String
+	nColNumber	As Integer
+End Type
+
 
 declare sub Main
 declare sub OpenDialog
@@ -123,7 +139,7 @@ Declare Function MSFUNCGetTableColumnNameValues(	  ByVal sTab As String
 										) As String
 
 Global strLogFile as string
-Dim	strThisSiteTable(2) As String
+Dim	arrCurrentSiteTableName(2) As String
 
 ' Style Override Properties
 Dim	sintLineCount(2), sintPenCount(2), sintBrushCount(2), sintFontCount(2), sintPointCount(2), sintDisplay(2), sintAlpha(2), sintBrighness(2), sintContrast(2) as smallint
@@ -255,17 +271,19 @@ End Sub
 '*******************************************************************************
 Sub SMProcessMaps
 
-Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
-	sRowID, sSiteID, sFileName, msOrigWindowTitle, strNewText, strOrientation, strCMD, strTemp, strFoundText As String,
-	aSiteID, aFileName As Alias,
+Dim	nMainWinID, arrLayoutMapFrameItem(2), arrMapWinID(2), nRowID, nLayer, nFrame, nNumFrames, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen, nPos1, nPos2 As Integer,
+	sRowID, sSiteID, sFileName, sOrigWindowTitle, sFrameName, sText, sSmartText, strOrientation, strCMD, sColValue As String,
+	aSiteID, aFileName, aCol As Alias,
 	oMBR, oPoint As Object,
 	bSiteIDIsCharColumn As Logical,
 	floPageSize As Float
+Dim	arrLayoutSmartTextFrames() As LAYOUT_TEXT_FRAME
+Dim	arrLayoutTextFrames() As LAYOUT_TEXT_FRAME
 
 	' >>>>>>>>>>>>>>>>>> This section creates a Map and Optional Layout for each site <<<<<<<<<<<<<<<<<<<<
 	Call PrintLog("Processing Main " & SMSDLGMainWindowType$() & " Window " & WindowInfo(SMSDLGMainWID(), WIN_INFO_NAME), TRUE, TRUE)
 	Call PrintLog("Processing Site Table " & SMSDLGGetSiteTab(1) & " (" & SMSDLGGetSiteColumn(1, "SITEID") & ")", TRUE, TRUE)
-	msOrigWindowTitle		= WindowInfo(SMSDLGMainWID(), WIN_INFO_NAME)
+	sOrigWindowTitle		= WindowInfo(SMSDLGMainWID(), WIN_INFO_NAME)
 
 	'Define coordsys to match site table
 	Set Coordsys Table SMSDLGGetSiteTab(1)
@@ -293,7 +311,7 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 	End If
 
 	nNumSites = TableInfo(_SEL_SITE_IDS, TAB_INFO_NROWS)
-	If nNumSites = 0 then
+	If nNumSites = 0 Then
 		Note "No mappable objects in table. Quitting"
 		exit sub
 	End If
@@ -301,7 +319,7 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 	' Check if user wants to proceed ...
 	If not Ask("This process will create " + nNumSites + " maps."
 				+ chr$(10) + "Make sure you have closed any files this process wil recreated."
-				+ chr$(10) + "Are you sure you want to proceed?", "Yes", "No") then
+				+ chr$(10) + "Are you sure you want to proceed?", "Yes", "No") Then
 		Exit Sub
 	End If
 
@@ -309,16 +327,16 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 
 	' Get layer style override settings and label settings of site layer
 	For nLevel = 1 To 2
-		If SMSDLGAddSiteAsLayer(nLevel) then
+		If SMSDLGAddSiteAsLayer(nLevel) Then
 			' Check if SMSDLGGetSiteTab(nLevel) is in SMSDLGSelectedMapperWID(nLevel)
 			For nLayer = 1 to MapperInfo(SMSDLGSelectedMapperWID(nLevel), MAPPER_INFO_LAYERS)
-				If LayerInfo(SMSDLGSelectedMapperWID(nLevel), nLayer, LAYER_INFO_NAME) = SMSDLGGetSiteTab(nLevel) then
+				If LayerInfo(SMSDLGSelectedMapperWID(nLevel), nLayer, LAYER_INFO_NAME) = SMSDLGGetSiteTab(nLevel) Then
 					arrLayerID(nLevel) = nLayer
 					Exit for
 				End If
 			Next
-			If arrLayerID(nLevel) > 0 then
-				If SMSDLGStyleOverideSiteLayer(nLevel) then
+			If arrLayerID(nLevel) > 0 Then
+				If SMSDLGStyleOverideSiteLayer(nLevel) Then
 					Call GetStyleOverrideProperties(nLevel, SMSDLGSelectedMapperWID(nLevel), arrLayerID(nLevel))
 					Call GetLabelProperties(nLevel, SMSDLGSelectedMapperWID(nLevel), arrLayerID(nLevel))
 				End If
@@ -328,15 +346,92 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 				Exit Sub
 			End If
 			' If option set to turn off site layer, toggle off
-			If SMSDLGTurnOffSiteLayer(nLevel) then
+			If SMSDLGTurnOffSiteLayer(nLevel) Then
 				Call PrintLog("Turning Of Display of Layer " & LayerInfo(SMSDLGSelectedMapperWID(nLevel), arrLayerID(nLevel), LAYER_INFO_NAME), TRUE, TRUE)
 				Set Map Window SMSDLGSelectedMapperWID(nLevel) Layer arrLayerID(nLevel) Display Off
 			End If
 		End If
 	Next
 
+	If SMSDLGCreateCopiesOfMainWindow() Then
+		If SMSDLGExportLayoutWindow() Then
+			'**Get LayoutItems for windows
+			Call PrintLog("Finding Frame with Maps in Main Window...", TRUE, TRUE)
+			For nLevel = 1 To 2
+				For nFrame = 1 to LayoutInfo(SMSDLGMainWID(),LAYOUT_INFO_NUM_ITEMS)
+					If LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_TYPE) = LAYOUT_ITEM_TYPE_MAPPER Then
+						If LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_WIN) = SMSDLGSelectedMapperWID(nLevel) Then
+							arrLayoutMapFrameItem(nLevel)	= nFrame
+							Exit For
+						End If
+					End If
+				Next
+			Next
+
+			'**Load LayoutItems for dynamic strings/smart texts
+			Call PrintLog("Finding Text Frame with Smart Texts in Main Window...", TRUE, TRUE)
+			nNumFrames	= 0
+			For nFrame = 1 to LayoutInfo(SMSDLGMainWID(),LAYOUT_INFO_NUM_ITEMS)
+				If LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_TYPE) = LAYOUT_ITEM_TYPE_TEXT Then
+					sText		= LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_TEXTSTRING)
+					sSmartText	= LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_SMART_TEXTSTRING)
+					sFrameName	= LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_NAME)
+
+					If sText <> sSmartText Then
+						If sText Like "%SMGet%" Then
+							nNumFrames	= nNumFrames + 1
+							Redim arrLayoutSmartTextFrames(nNumFrames)
+							Call PrintLog(nNumFrames & " Frame " & nFrame & " " & sFrameName & ": " & sText & " = " & sSmartText, TRUE, TRUE)
+							arrLayoutSmartTextFrames(nNumFrames).nFrameID	= nFrame
+							arrLayoutSmartTextFrames(nNumFrames).sFrameName	= sFrameName
+							arrLayoutSmartTextFrames(nNumFrames).sText		= sText
+							arrLayoutSmartTextFrames(nNumFrames).sSmartText	= sSmartText
+						Else
+							Call PrintLog("Not SiteMapper SmartText: Frame " & nFrame & " " & sFrameName & ": " & sText & " = " & sSmartText, TRUE, TRUE)
+						End If
+					End If
+				End If
+			Next
+		End If
+	End If
+
+	'**Load LayoutItems for dynamic strings/smart texts
+	If SMSDLGExportLayoutWindow() Then
+		Call PrintLog("Finding Text Frame with <COL...> Texts in Main Window...", TRUE, TRUE)
+		'**Load LayoutItems for dynamic strings/smart texts
+		nNumFrames	= 0
+		For nFrame = 1 to LayoutInfo(SMSDLGMainWID(),LAYOUT_INFO_NUM_ITEMS)
+			If LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_TYPE) = LAYOUT_ITEM_TYPE_TEXT Then
+				sText		= LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_TEXTSTRING)
+				sSmartText	= LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_SMART_TEXTSTRING)
+				sFrameName	= LayoutItemInfo(SMSDLGMainWID(), nFrame, LAYOUT_ITEM_INFO_NAME)
+
+				nPos1 = InStr(1, sFrameName, "<COL")
+				If nPos1 > 0 Then
+					nPos2 = InStr(nPos1, sFrameName, ">")
+					If nPos2 > 0 Then
+						nNumFrames	= nNumFrames + 1
+						Redim arrLayoutTextFrames(nNumFrames)
+						Call PrintLog(nNumFrames & " Frame " & nFrame & " " & sFrameName & ": " & sText, TRUE, TRUE)
+						arrLayoutTextFrames(nNumFrames).nFrameID	= nFrame
+						arrLayoutTextFrames(nNumFrames).sFrameName	= sFrameName
+						arrLayoutTextFrames(nNumFrames).sText		= sText
+
+						sFrameName	= Right$(sFrameName,len(sFrameName) - nPos1 - 3)  ' Trim off right of string up to number
+						nPos2		= instr(1, sFrameName, ">")
+						arrLayoutTextFrames(nNumFrames).nColNumber	= Val(Left$(sFrameName, nPos2 - 1))  ' trim left, before the ">"
+						Call PrintLog("      Column: COL" & arrLayoutTextFrames(nNumFrames).nColNumber, TRUE, TRUE)
+					End If
+				End If
+			End If
+		Next
+	End If
+
+	'**Get length of potential RowID with prefixed 0's
 	nRowIDCharLen		= Minimum(3, Len(Str$(nNumSites)))		'Minimum 000 -> 001.pdf
+	'**Check is SiteID columns is a character column type
 	bSiteIDIsCharColumn	= (ColumnInfo("_SEL_SITE_IDS", "SITEID", COL_INFO_TYPE) = COL_TYPE_CHAR)
+
 	' Create map for each row in grouped table ...
 	Fetch First from _SEL_SITE_IDS
 	Do Until EOT(_SEL_SITE_IDS)
@@ -351,8 +446,8 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 		End If
 
 		sRowID			= Right$(String$(nRowIDCharLen, "0") & nRowID, nRowIDCharLen) '-> 001, 002, 003 etc
-		strThisSiteTable(1) = "q1_" + sRowID
-		strThisSiteTable(2) = "q2_" + sRowID
+		arrCurrentSiteTableName(1) = "q1_" + sRowID
+		arrCurrentSiteTableName(2) = "q2_" + sRowID
 
 		Call PrintLog("@-@-@-@-@-@-@-@-@", TRUE, TRUE)
 		Call PrintLog("Processing map for Site " & FormatNumber$(nRowID) & " of " & FormatNumber$(nNumSites) & ": " & sRowID  & ": Site ID: " & sSiteID, TRUE, TRUE)
@@ -360,7 +455,7 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 	   	' >>>> GET VALUE FROM COLUMN FOR WINDOW TITLE AND FILENAME
 	   	Do Case SMSDLGGetFileNameType()	'1: Char Column; 2: Site ID; 3: Counter"
 	   		Case 1	'1: Use Char Column
-				If ColumnInfo(_SEL_SITE_IDS, "FILENAME", COL_INFO_TYPE) = COL_TYPE_CHAR then 'if column is a character column ...
+				If ColumnInfo(_SEL_SITE_IDS, "FILENAME", COL_INFO_TYPE) = COL_TYPE_CHAR Then 'if column is a character column ...
 					sFileName = _SEL_SITE_IDS.FILENAME
 				Else 'if column is not a character
 					sFileName = str$(_SEL_SITE_IDS.FILENAME)
@@ -373,72 +468,148 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 
 		' replace/remove spaces, brackets, etc
 		sFileName = IIf(SMSDLGUseProperCase("MapTitle"), Proper$(sFileName), sFileName)
-		'sFileName = ChangeCharacters(sFileName)
 
 		Call PrintLog("     " & nRowID & ": Filename: " & sFileName, TRUE, TRUE)
 
+		'**Cloning the Main Window
+		If SMSDLGCreateCopiesOfMainWindow() Then
+			Call PrintLog("     Cloning the Main Window", TRUE, TRUE)
+			'Clone Main Window
+			Run Command WindowInfo(SMSDLGMainWID(), WIN_INFO_CLONEWINDOW)
+
+			nMainWinID	= FrontWindow() ' new cloned window
+			Set Window nMainWinID Show ' show the new layout window
+
+			For nLevel = 1 To 2
+				If arrLayoutMapFrameItem(nLevel) > 0 Then
+					arrMapWinID(nLevel)	= LayoutItemInfo(nMainWinID, arrLayoutMapFrameItem(nLevel), LAYOUT_ITEM_INFO_WIN)
+				End If
+			Next
+		Else
+			Call PrintLog("     NOT Cloning the Main Window", TRUE, TRUE)
+			nMainWinID	= SMSDLGMainWID()
+
+			For nLevel = 1 To 2
+				arrMapWinID(nLevel)	= SMSDLGSelectedMapperWID(nLevel)
+			Next
+		End If
+
 		' Set Window Title
 		Call PrintLog("Set Window Title to " + sFileName + ".", TRUE, TRUE)
-		Set Window SMSDLGMainWID() Title sFileName
-
-		Set Window SMSDLGMainWID() show
+		Set Window nMainWinID Title sFileName
+		Set Window nMainWinID show
 
 		For nLevel = 1 To 2
 			If SMSDLGQuerySiteTab(nLevel) Then
-				aSiteID	= SMSDLGGetSiteTab(nLevel) & "." & SMSDLGGetSiteColumn(1, "SITEID")
+				aSiteID	= SMSDLGGetSiteTab(nLevel) & "." & SMSDLGGetSiteColumn(nLevel, "SITEID")
 				If bSiteIDIsCharColumn Then
-					Select *
-						From SMSDLGGetSiteTab(nLevel)
-						Where aSiteID = sSiteID
-						Into strThisSiteTable(nLevel) NoSelect
+'					Select *
+'						From SMSDLGGetSiteTab(nLevel)
+'						Where aSiteID = Val(sSiteID)
+'						Into arrCurrentSiteTableName(nLevel) NoSelect
+
+					strCmd = "Select * From " & SMSDLGGetSiteTab(nLevel)
+							& " Where " & SMSDLGGetSiteColumn(nLevel, "SITEID") & " = " & Chr$(34) & sSiteID & Chr$(34)
+							& " Into " & arrCurrentSiteTableName(nLevel) & " NoSelect"
 				Else
-					Select *
-						From SMSDLGGetSiteTab(nLevel)
-						Where aSiteID = Val(sSiteID)
-						Into strThisSiteTable(nLevel) NoSelect
+'					Select *
+'						From SMSDLGGetSiteTab(nLevel)
+'						Where aSiteID = Val(sSiteID)
+'						Into arrCurrentSiteTableName(nLevel) NoSelect
+
+					strCmd = "Select * From " & SMSDLGGetSiteTab(nLevel)
+							& " Where " & SMSDLGGetSiteColumn(nLevel, "SITEID") & " = Val(" & sSiteID & ")"
+							& " Into " & arrCurrentSiteTableName(nLevel) & " NoSelect"
 				End If
-				Call PrintLog("     " & nRowID & ": Query: " & strThisSiteTable(nLevel) & " Records: " & TableInfo(strThisSiteTable(nLevel), TAB_INFO_NROWS), TRUE, TRUE)
+				Call PrintLog("     " & nRowID & ": SQL Query: " & strCmd, TRUE, TRUE)
+				Run Command strCmd
+				Call PrintLog("     " & nRowID & ": Query: " & arrCurrentSiteTableName(nLevel) & " Records: " & TableInfo(arrCurrentSiteTableName(nLevel), TAB_INFO_NROWS), TRUE, TRUE)
 			End If
 
-			If SMSDLGSelectedMapperWID(nLevel) <> 0 Then
-				Call PrepareMapForCurrentSite(SMSDLGSelectedMapperWID(nLevel), arrLayerID(nLevel), strThisSiteTable(nLevel)
+			If arrMapWinID(nLevel) <> 0 Then
+				Call PrepareMapForCurrentSite(arrMapWinID(nLevel), arrLayerID(nLevel), arrCurrentSiteTableName(nLevel)
 									, SMSDLGAddSiteAsLayer(nLevel)
 									, SMSDLGGetZoomType(nLevel), SMSDLGGetZoomWidth(nLevel), SMSDLGKeepCurrentZoom(nLevel), nLevel)
-				Set Window SMSDLGSelectedMapperWID(nLevel) Front
+				Set Window arrMapWinID(nLevel) Front
 			End If
 		Next
 
-		Set Window SMSDLGMainWID() front
+		Set Window nMainWinID Front
 
-		If Not SMSDLGExportMapWindow() Then
-			set layout window SMSDLGMainWID() extents to Fit
-			Set Layout Frame Contents On
-			Set Layout Selection Clear
+		If SMSDLGExportLayoutWindow() Then
+			Set Layout Window nMainWinID Extents To Fit
+			Set Layout Window nMainWinID Frame Contents On
+			Set Layout Window nMainWinID Selection Clear
+		End If
+
+		'**Crystalyzing SmartText for cloned layout windows, if required
+		For nFrame = 1 To Ubound(arrLayoutSmartTextFrames)
+			sSmartText	= LayoutItemInfo(nMainWinID, arrLayoutSmartTextFrames(nFrame).nFrameID, LAYOUT_ITEM_INFO_SMART_TEXTSTRING)
+			Call PrintLog(" Crystalyze: Frame " & nFrame & " FrameID: " & arrLayoutSmartTextFrames(nFrame).nFrameID & ": Text => " & sSmartText, TRUE, TRUE)
+			Alter Designer Text Window nMainWinID ID arrLayoutSmartTextFrames(nFrame).nFrameID Text sSmartText
+		Next
+
+		'**Crystalyzing <COL...> for layout windows, if required
+		For nFrame = 1 To Ubound(arrLayoutTextFrames)
+			If arrLayoutTextFrames(nFrame).nColNumber Between 1 And TableInfo(arrCurrentSiteTableName(1), TAB_INFO_NCOLS) Then
+				' Get relevant column value from query
+				Fetch First From arrCurrentSiteTableName(1)
+				aCol			= arrCurrentSiteTableName(1) + ".COL" + Str$(arrLayoutTextFrames(nFrame).nColNumber)
+				sColValue		= str$(aCol)
+				sFrameName	= arrLayoutTextFrames(nFrame).sFrameName
+				nPos1 		= InStr(1, sFrameName, "<COL")
+				nPos2 		= InStr(nPos1, sFrameName, ">")
+
+				sText		= Left$(sFrameName, nPos1 - 1) + sColValue + Right$(sFrameName, Len(sFrameName) - nPos2)
+				Call PrintLog(" Change <COL..>: Frame " & arrLayoutTextFrames(nFrame).nFrameID & " FrameName: " & sFrameName & ": Text => " & sText, TRUE, TRUE)
+				Alter Designer Text Window nMainWinID ID arrLayoutTextFrames(nFrame).nFrameID Text sText
+			End If
+		Next
+
+		Update Window nMainWinID
+
+		'**Delaying Print/Output if required by user
+		If SMSDLGDelayOnPrintWindow() Then
+			Call PrintLog("Creating output after a delay of " + FormatNumber$(SMSDLGGetDelayPrintMiliSecs()) + " msecs.", TRUE, TRUE)
+			Call Sleep(SMSDLGGetDelayPrintMiliSecs())
+		End If
+
+		' >>>>>>>  Print JPG if checkbox is ticked ..
+		If SMSDLGExportToFormat("JPG") Then
+			Call PrintLog("Exporting Window as JPG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".jpg", TRUE, TRUE)
+			Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName + ".jpg"
+				Type "JPEG" Resolution + SMSDLGGetImageResolution()
+		End If
+
+		' >>>>>>>  Print PNG if checkbox is ticked ..
+		If SMSDLGExportToFormat("PNG") Then
+			Call PrintLog("Exporting Window as PNG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".PNG", TRUE, TRUE)
+			Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName +".PNG"
+				Type "PNG" Resolution + SMSDLGGetImageResolution()
 		End If
 
 		' >>>>>>> print PDF if checkbox is ticked ..
-		If SMSDLGExportToFormat("PDF") then ' print MAP to PDF and JPG
-			If SMSDLGExportMapWindow() then ' Export MAPPER instead of LAYOUT ...
+		If SMSDLGExportToFormat("PDF") Then ' print MAP to PDF and JPG
+			If SMSDLGExportMapWindow() Then ' Export MAPPER instead of LAYOUT ...
 				Call PrintLog("Exporting Map Window with PDF driver " + SMSDLGGetPDFPrinterDriver$() + ".", TRUE, TRUE)
 
 				' get map page orientation
-				If WindowInfo(SMSDLGMainWID(), WIN_INFO_PRINTER_ORIENT) = WIN_PRINTER_PORTRAIT then
+				If WindowInfo(nMainWinID, WIN_INFO_PRINTER_ORIENT) = WIN_PRINTER_PORTRAIT Then
 					strOrientation = "Portrait"
-				ElseIf WindowInfo(SMSDLGMainWID(), WIN_INFO_PRINTER_ORIENT) = WIN_PRINTER_LANDSCAPE then
+				ElseIf WindowInfo(nMainWinID, WIN_INFO_PRINTER_ORIENT) = WIN_PRINTER_LANDSCAPE Then
 					strOrientation = "Landscape"
 				End If
 
 				' Set which PDF driver to use and page orientation
-				strCmd = "Set Window " + SMSDLGMainWID()
-					+ " Printer Name " + chr$(34) + SMSDLGGetPDFPrinterDriver$() + chr$(34)
-					+ " Orientation " + strOrientation + " Copies 1 Papersize 9"
-				' note strCmd
+				strCmd = "Set Window " + nMainWinID
+						+ " Printer Name " + chr$(34) + SMSDLGGetPDFPrinterDriver$() + chr$(34)
+						+ " Orientation " + strOrientation + " Copies 1 Papersize 9"
 				Run Command strCmd
 
 				' create strCmd to print map
-				strCmd = "PrintWin Window " + SMSDLGMainWID()
-					+ " File " + chr$(34)+ SMSDLGGetOutputFolder() + sFileName + ".pdf" + chr$(34)
-					+ " overwrite" ' prints directly to output folder and overwrites file
+				strCmd = "PrintWin Window " + nMainWinID
+						+ " File " + chr$(34)+ SMSDLGGetOutputFolder() + sFileName + ".pdf" + chr$(34)
+						+ " overwrite" ' prints directly to output folder and overwrites file
 				Call PrintLog(strCMD, TRUE, FALSE)
 				Run Command strCmd
 
@@ -446,25 +617,24 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 
 				Call PrintLog("Exporting Layout Window with PDF driver " + SMSDLGGetPDFPrinterDriver$() + ".", TRUE, TRUE)
 				' get layout page orientation
-				If WindowInfo(SMSDLGMainWID(), WIN_INFO_PRINTER_ORIENT) = 1 then ' portrait
+				If WindowInfo(nMainWinID, WIN_INFO_PRINTER_ORIENT) = 1 Then ' portrait
 					strOrientation = "Portrait"
-				ElseIf WindowInfo(SMSDLGMainWID(), WIN_INFO_PRINTER_ORIENT) = 2 then 'landscape
+				ElseIf WindowInfo(nMainWinID, WIN_INFO_PRINTER_ORIENT) = 2 Then 'landscape
 					strOrientation = "Landscape"
 				End If
 
 				' Get Layout page size
-				floPageSize =  WindowInfo(SMSDLGMainWID(), WIN_INFO_PRINTER_PAPERSIZE)
+				floPageSize =  WindowInfo(nMainWinID, WIN_INFO_PRINTER_PAPERSIZE)
 
 				' Set which PDF driver to use and page orientation
-				strCmd = "Set Window " + SMSDLGMainWID()
-					+ " Printer Name " + chr$(34) + SMSDLGGetPDFPrinterDriver$() + chr$(34)
-					+ " Orientation " + strOrientation + " Copies 1 Papersize " + floPageSize
-				'print strCMD
+				strCmd = "Set Window " + nMainWinID
+						+ " Printer Name " + chr$(34) + SMSDLGGetPDFPrinterDriver$() + chr$(34)
+						+ " Orientation " + strOrientation + " Copies 1 Papersize " + floPageSize
 				Run Command strCmd
 
-				strCmd = "PrintWin Window " + SMSDLGSelectedLayoutWID()
-					+ " File " +chr$(34)+ SMSDLGGetOutputFolder() + sFileName + ".pdf" + chr$(34)
-					+ " overwrite" ' prints directly to output folder and overwrites file
+				strCmd = "PrintWin Window " + nMainWinID
+						+ " File " +chr$(34)+ SMSDLGGetOutputFolder() + sFileName + ".pdf" + chr$(34)
+						+ " overwrite" ' prints directly to output folder and overwrites file
 				Call PrintLog(strCMD, TRUE, FALSE)
 				Run Command strCmd
 			End If
@@ -472,52 +642,56 @@ Dim	nRowID, nLayer, nNumSites, arrLayerID(2), nLevel, nRowIDCharLen As Integer,
 			'print "Not printing PDF."
 		End If
 
-		' >>>>>>>  Print JPG if checkbox is ticked ..
-		If SMSDLGExportToFormat("JPG") then
-			Call PrintLog("Exporting Window as JPG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".jpg", TRUE, TRUE)
-			Save Window SMSDLGMainWID() As SMSDLGGetOutputFolder() + sFileName + ".jpg"
-				Type "JPEG" Resolution + SMSDLGGetImageResolution()
-		End If
-
-		' >>>>>>>  Print PNG if checkbox is ticked ..
-		If SMSDLGExportToFormat("PNG") then
-			Call PrintLog("Exporting Window as PNG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".PNG", TRUE, TRUE)
-			Save Window SMSDLGMainWID() As SMSDLGGetOutputFolder() + sFileName +".PNG"
-				Type "PNG" Resolution + SMSDLGGetImageResolution()
+		If SMSDLGDelayOnNextSite() Then
+			Call PrintLog("Moving onto next Site after a delay of " + FormatNumber$(SMSDLGGetDelayNextSiteMiliSecs()) + " msecs.", TRUE, TRUE)
+			Call Sleep(SMSDLGGetDelayNextSiteMiliSecs())
 		End If
 
 		Call PrintLog("Completed printing maps for site " + sFileName, TRUE, TRUE)
 
 '		---------------
 		SkipToHere:
-		For nLevel = 1 To 2
-			If SMSDLGQuerySiteTab(nLevel) And SMSDLGGetSiteTab(nLevel) <> "" Then
-				Close Table strThisSiteTable(nLevel)
-			End If
-		Next
+		If Not SMSDLGCreateCopiesOfMainWindow() Then
+			For nLevel = 1 To 2
+				If SMSDLGQuerySiteTab(nLevel) And SMSDLGGetSiteTab(nLevel) <> "" Then
+					Close Table arrCurrentSiteTableName(nLevel)
+				End If
+			Next
+		End If
 
 		Fetch Next From _SEL_SITE_IDS
 	Loop
 
 	For nLevel = 1 To 2
-		If SMSDLGAddSiteAsLayer(nLevel) then
-			If SMSDLGTurnOffSiteLayer(nLevel) then
+		If SMSDLGAddSiteAsLayer(nLevel) Then
+			If SMSDLGTurnOffSiteLayer(nLevel) Then
 				Call PrintLog("Set Map Window " & SMSDLGSelectedMapperWID(nLevel) & " Layer " & arrLayerID(nLevel) & " Display Global", TRUE, TRUE)
 				Set Map Window SMSDLGSelectedMapperWID(nLevel) Layer arrLayerID(nLevel) Display Global
 			End If
 		End If
 	Next
 
-	Call PrintLog("Set Window " & SMSDLGMainWID() & " Title " & msOrigWindowTitle, TRUE, TRUE)
-	Set Window SMSDLGMainWID() Title msOrigWindowTitle
+	If Not SMSDLGCreateCopiesOfMainWindow() Then
+		Call PrintLog("Set Window " & nMainWinID & " Title " & sOrigWindowTitle, TRUE, TRUE)
+		Set Window SMSDLGMainWID() Title sOrigWindowTitle
+
+		If SMSDLGExportLayoutWindow() Then
+			'**Resetting <COL...> text frames to original text for layout windows
+			For nFrame = 1 To Ubound(arrLayoutTextFrames)
+				sText		= arrLayoutTextFrames(nFrame).sText
+				Call PrintLog(" Resetting <COL..>: Frame " & arrLayoutTextFrames(nFrame).nFrameID & " FrameName: " & sFrameName & ": Text => " & sText, TRUE, TRUE)
+				Alter Designer Text Window nMainWinID ID arrLayoutTextFrames(nFrame).nFrameID Text sText
+			Next
+		End If
+	End If
 
 	' close temp query
-	close table _SEL_SITE_IDS
+	Close Table _SEL_SITE_IDS
 
 	beep
 	Call PrintLog("Finished Exporting all maps", TRUE, TRUE)
 	'note "The program is finished"
-	If Ask("Finished!"+chr$(13)+chr$(13)+"Open Log File?","Yes","No") then
+	If Ask("Finished!"+chr$(13)+chr$(13)+"Open Log File?","Yes","No") Then
 		run program "notepad.exe " + strLogFile
 	End If
 
@@ -559,11 +733,11 @@ Dim	oMBR, oPoint As Object
 		' Pan and Zoom Mapper on Layout ...
 		Set Map Window nMID Redraw off
 
-		If bAddCurrentSiteAsLayer then ' if option to add selection to mapper is checked then ...
+		If bAddCurrentSiteAsLayer Then ' if option to add selection to mapper is checked Then ...
 			Add map window nMID
 				layer sCurrentSiteTab
 				Position nSiteLayerID
-			If SMSDLGStyleOverideSiteLayer(nLevel) then
+			If SMSDLGStyleOverideSiteLayer(nLevel) Then
 				Call UpdateLabelProperties(nLevel, nMID, nSiteLayerID)
 				Call UpdateStyleOverrideProperties(nLevel, nMID, nSiteLayerID)
 			End If
@@ -572,7 +746,7 @@ Dim	oMBR, oPoint As Object
 		Do Case nZoomType
 			Case 1 	'Set map centre to object centroid and zoom as specified by control
 				Call PrintLog("  Panning map window " + nMID + " to Centroid of site.", TRUE, FALSE)
-				If bDontChangeZoom then
+				If bDontChangeZoom Then
 					Set Map Window nMID
 						Center (CentroidX(oPoint), CentroidY(oPoint))
 				Else
@@ -583,8 +757,8 @@ Dim	oMBR, oPoint As Object
 
 			Case 2  	' zoom map to extent of object
 				Call PrintLog("  Zooming map window " + nMID + " to Full Extent of site.", TRUE, FALSE)
-				If not bAddCurrentSiteAsLayer then ' if option to add selection to mapper is checked then ...
-					' Add to map at position 1, to zoom to, then remove
+				If not bAddCurrentSiteAsLayer Then ' if option to add selection to mapper is checked Then ...
+					' Add to map at position 1, to zoom to, Then remove
 					Add map window nMID layer sCurrentSiteTab Position 1 ' add layer at set position, so it can be removed
 					Set Map Window nMID
 						Zoom Entire Layer sCurrentSiteTab
@@ -623,7 +797,7 @@ OnError goto ErrorHandler
 
 	' Get brightness and contrast for image layers only
 	'print "layer type "+ LayerInfo(intMapID,intLayerID,LAYER_INFO_TYPE)
-	If LayerInfo(intMapID,intLayerID,LAYER_INFO_TYPE) = Any(2,5,6) then ' LAYER_INFO_TYPE_IMAGE,  LAYER_INFO_TYPE_WMS, LAYER_INFO_TYPE_TILESERVER
+	If LayerInfo(intMapID,intLayerID,LAYER_INFO_TYPE) = Any(2,5,6) Then ' LAYER_INFO_TYPE_IMAGE,  LAYER_INFO_TYPE_WMS, LAYER_INFO_TYPE_TILESERVER
 		sintBrighness(nLevel)	= LayerInfo(intMapID,intLayerID,LAYER_INFO_RASTER_BRIGHTNESS)
 		'print "sintBrighness="+sintBrighness(nLevel)
 		sintContrast(nLevel)	= LayerInfo(intMapID,intLayerID,LAYER_INFO_RASTER_CONTRAST)
@@ -632,7 +806,7 @@ OnError goto ErrorHandler
 		'print "strGreyscale="+strGreyscale(nLevel)
 	End If
 
-	If LayerInfo(intMapID,intLayerID,LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL then	' Only for vector layers. Will return error if WMS/WMTS/etc
+	If LayerInfo(intMapID,intLayerID,LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then	' Only for vector layers. Will return error if WMS/WMTS/etc
 		' count stacked style
 		sintPointCount(nLevel) = LayerInfo(intMapID,intLayerID, LAYER_INFO_OVR_SYMBOL_COUNT)
 		'print "sintPointCount="+sintPointCount(nLevel)
@@ -646,7 +820,7 @@ OnError goto ErrorHandler
 		'print "sintFontCount="+sintFontCount(nLevel)
 
 		' Get Line Properties for style override
-		If sintLineCount(nLevel) = 1 then
+		If sintLineCount(nLevel) = 1 Then
 			redim curLine(1)
 			curLine(1) = StyleOverrideInfo(intMapID,intLayerID,0,STYLE_OVR_INFO_LINE)
 			If nLevel = 1 Then
@@ -662,7 +836,7 @@ OnError goto ErrorHandler
 				strCurLine2(1) = "Line"+Right$(strCurLine2(1),len(strCurLine2(1))-3) ' change prefix "Pen" to "Line"
 				'print "strCurLine2 = "+strCurLine2(1)
 			End If
-		ElseIf sintLineCount(nLevel) > 1 then
+		ElseIf sintLineCount(nLevel) > 1 Then
 			redim curLine(sintLineCount(nLevel))
 
 			If nLevel = 1 Then
@@ -685,7 +859,7 @@ OnError goto ErrorHandler
 		End If
 
 		' Get Symbol Properties for style override
-		If sintPointCount(nLevel) = 1 then
+		If sintPointCount(nLevel) = 1 Then
 			redim curSymbol(1)
 			curSymbol(1) = StyleOverrideInfo(intMapID,intLayerID,0,STYLE_OVR_INFO_SYMBOL)
 			If nLevel = 1 Then
@@ -697,7 +871,7 @@ OnError goto ErrorHandler
 				strCurSymbol2(1) = curSymbol(1)
 				'print "strCurSymbol2(1) = "+strCurSymbol2(1)
 			End If
-		ElseIf sintPointCount(nLevel) > 1 then
+		ElseIf sintPointCount(nLevel) > 1 Then
 			redim curSymbol(sintPointCount(nLevel))
 			If nLevel = 1 Then
 				redim strCurSymbol1(sintPointCount)
@@ -717,7 +891,7 @@ OnError goto ErrorHandler
 		End If
 
 		' Get Pen Properties for style override
-		If sintPenCount(nLevel) = 1 then
+		If sintPenCount(nLevel) = 1 Then
 			redim curPen(1)
 			curPen(1) = StyleOverrideInfo(intMapID, intLayerID, 0, STYLE_OVR_INFO_PEN)
 			If nLevel = 1 Then
@@ -729,7 +903,7 @@ OnError goto ErrorHandler
 				strCurPen2(1) = curPen(1)
 				'print "strCurPen2(1) = "+strCurPen2(1)
 			End If
-		ElseIf sintPenCount(nLevel) > 1 then
+		ElseIf sintPenCount(nLevel) > 1 Then
 			redim curPen(sintPenCount(nLevel))
 			If nLevel = 1 Then
 				redim strCurPen1(sintPenCount(nLevel))
@@ -749,7 +923,7 @@ OnError goto ErrorHandler
 		End If
 
 		' Get BRUSH Properties for style override
-		If sintBrushCount(nLevel) = 1 then
+		If sintBrushCount(nLevel) = 1 Then
 			redim curBrush(1)
 			curBrush(1) = StyleOverrideInfo(intMapID, intLayerID, 0, STYLE_OVR_INFO_BRUSH)
 			If nLevel = 1 Then
@@ -761,7 +935,7 @@ OnError goto ErrorHandler
 				strCurBrush2(1) = curBrush(1)
 				'print "curBrush2(1) = " + curBrush2(1)
 			End If
-		ElseIf sintBrushCount(nLevel) > 1 then
+		ElseIf sintBrushCount(nLevel) > 1 Then
 			redim curBrush(sintBrushCount(nLevel))
 			If nLevel = 1 Then
 				redim strCurBrush1(sintBrushCount(nLevel))
@@ -879,13 +1053,13 @@ OnError goto ErrorHandler
 			strLabelPosition(nLevel) = "Below Right"
 	End Case
 
-	If bLabelOverlap = False and bLabelRetry = False then
+	If bLabelOverlap = False and bLabelRetry = False Then
 		strLabelRetry(nLevel) = "Auto Retry Off"
 	End If
-	If bLabelOverlap = False and bLabelRetry = True then
+	If bLabelOverlap = False and bLabelRetry = True Then
 		strLabelRetry(nLevel) = "Auto Retry On"
 	End If
-	If bLabelOverlap = True and bLabelRetry = False then
+	If bLabelOverlap = True and bLabelRetry = False Then
 		strLabelRetry(nLevel) = "Overlap On Auto Retry Off"
 	End If
 
@@ -923,9 +1097,9 @@ dim strCMD, strCMD_1, strCMD_2, strCMD_3, strCMD_4 as string
 
 OnError goto ErrorHandler
 
-	Call PrintLog("Updating style override for Mapper "+intMapperID+" Layer "+intLayerID, TRUE, TRUE)
+	Call PrintLog("     Updating Style Override for Mapper " + intMapperID + " Layer " + intLayerID, TRUE, TRUE)
 
-	If LayerInfo(intMapperID,intLayerID,LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL then	' For vector layers.
+	If LayerInfo(intMapperID,intLayerID,LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then	' For vector layers.
 
 		strCMD = "Set Map Window "+intMapperID+" Layer "+intLayerID+" Display Global" ' turn style override on
 		'print strCMD
@@ -1017,7 +1191,7 @@ dim strCMD as string
 
 OnError goto ErrorHandler
 
-	Call PrintLog("Updating Label Properties for Mapper " + intMapperID + " Layer " + intLayerID, TRUE, TRUE)
+	Call PrintLog("     Updating Label Properties for Mapper " + intMapperID + " Layer " + intLayerID, TRUE, TRUE)
 
 	strCMD = "Set Map Window "+intMapperID+" Layer "+intLayerID+" Label With "+strLabelExpr(nLevel)+ " Abbreviation "+strLabelAbbrev(nLevel)+" Abbreviate with "+strLabelAbbrevExpr(nLevel)
 	run command strCMD
@@ -1050,7 +1224,7 @@ OnError goto ErrorHandler
 	run command strCMD
 
 	' for curved lines
-	If sintLabelOrientation(nLevel) = 2 then
+	If sintLabelOrientation(nLevel) = 2 Then
 		strCMD = "Set Map Window " + intMapperID + " Layer " + intLayerID
 				+ " Label Follow Path Fallback " + strLabelFallback(nLevel) + " BestPosition " + strLabelBestPosition(nLevel)
 		Run command strCMD
@@ -1097,25 +1271,25 @@ Sub PrintLog(	  ByVal strLog as string
 			, ByVal bPrintToMessageWindow As Logical
 			, ByVal bPrintToLogFile As Logical)
 
-	If bPrintToMessageWindow then
+	If bPrintToMessageWindow Then
 		Print Time(24) + ": " + strLog
 	End If
 
 OnError goto FileErr
 
 	If bPrintToLogFile Then
-		If strLogFile = "" then
+		If strLogFile = "" Then
 			strLogFile = SMSDLGGetOutputFolder() + "Map_Export_Log_" + CurDate() + "_" + Left$(Time(24),2) + Mid$(Time(24),4,2) + ".log"
 		End If
 
-		If NOT FileExists(strLogFile) then
+		If NOT FileExists(strLogFile) Then
 			Open File strLogFile for Output Access Write as #17
 			Print chr$(10) + "Logging to " + strLogFile + chr$(10)
 		Else
 			Open File strLogFile for Append Access Write as #17
 		End If
 
-		If strLog <> "" then
+		If strLog <> "" Then
 			Print #17, FormatDate$(CurDate()) + "  " + Time(24) + "      " + strLog
 		Else
 			Print #17, ""
@@ -1242,7 +1416,7 @@ Function MSFUNCGetColumnValue(  ByVal sCol As String
 
 Dim	sTab As String
 
-	sTab 				= strThisSiteTable(1)
+	sTab 				= arrCurrentSiteTableName(1)
 	MSFUNCGetColumnValue	= MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
 
 	Exit Function
