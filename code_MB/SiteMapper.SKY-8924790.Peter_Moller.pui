@@ -1,29 +1,26 @@
 [Open Files]
 Active File Display Mode=1
 Active File Index=0
-Open File Line0=1820
+Open File Line0=2414
 Open File Line1=0
-Open File Line2=100300
-Open File Line3=2
-Open File Line4=16462
-Open File Pos0=2922
-Open File Pos1=366
-Open File Pos2=102352
-Open File Pos3=956
-Open File Pos4=16552
-Open File Window Pos0=0,1,-1,-1,-1,-1,3,26,1913,1164
-Open File Window Pos1=0,1,-1,-1,-1,-1,3,26,1913,1164
-Open File Window Pos2=0,1,-1,-1,-1,-1,3,26,1913,1164
-Open File Window Pos3=0,1,-1,-1,-1,-1,3,26,1913,1164
-Open File Window Pos4=0,1,-1,-1,-1,-1,3,26,1913,1164
+Open File Line2=2
+Open File Line3=1912
+Open File Pos0=3417
+Open File Pos1=337
+Open File Pos2=2
+Open File Pos3=5212
+Open File Window Pos0=0,1,-1,-1,-1,-1,3,26,1913,1022
+Open File Window Pos1=0,1,-1,-1,-1,-1,3,26,1913,1022
+Open File Window Pos2=0,1,-1,-1,-1,-1,3,26,1913,1022
+Open File Window Pos3=0,1,-1,-1,-1,-1,3,26,1913,1022
 Open File0=D:\Dropbox (Horsboll-Moller)\3. MB_Kode\mbSiteMapper\code_MB\SiteMapper_x64.mb
 Open File1=D:\Dropbox (Horsboll-Moller)\3. MB_Kode\mbSiteMapper\code_MB\SiteMapper.mbp
 Open File2=D:\Dropbox (Horsboll-Moller)\3. MB_Kode\mbSiteMapper\code_MB\SMSDLG_SiteMapperSetup.mb
 Open File3=D:\Dropbox (Horsboll-Moller)\3. MB_Kode\mbSiteMapper\code_MB\SMSDLG_SiteMapperSetup.def
-Open File4=D:\Dropbox (Horsboll-Moller)\4. MapInfo Tools\Site Mapper 1.9\AppContent\_Code\SiteMapper_x64_v1.9.mb
-Open File5=
+Open File4=
 Remember Files=1
 
 [Project Information]
 	Project Start=E5070A0002000C000D003000190000005A
 	Working Time=260266
+

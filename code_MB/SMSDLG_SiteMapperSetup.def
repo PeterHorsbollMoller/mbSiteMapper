@@ -3,13 +3,15 @@
 Declare Sub SMSDLGSaveUserSettings(ByVal sFile As String)
 Declare Sub SMSDLGLoadUserSettings(ByVal sFile As String)
 
+Declare Function SMSDLGExportWindowType() As Integer		'1 = Map Window; 2 = Layout Window
 Declare Function SMSDLGExportMapWindow() As Logical
 Declare Function SMSDLGExportLayoutWindow() As Logical
 Declare Function SMSDLGMainWID() As Integer
 Declare Function SMSDLGMainWindowType$() As String
 Declare Function SMSDLGSelectedMapperWID(ByVal nLevel As Integer) As Integer
 Declare Function SMSDLGSelectedLayoutWID() As Integer
-Declare Function SMSDLGUseSecondaryMap() As Integer
+Declare Function SMSDLGUseSecondaryMap() As Logical
+Declare Function SMSDLGNumberOfMaps() As Integer
 
 Declare Function SMSDLGGetSiteTab(ByVal nLevel As Integer) As String
 Declare Function SMSDLGGetSiteColumn(ByVal nLevel As Integer, ByVal sColumnType As String) As String
@@ -33,7 +35,6 @@ Declare Function SMSDLGGetZoomType(ByVal nLevel As Integer) As Logical
 
 Declare Function SMSDLGUseProperCase(ByVal sType As String) As Logical	'"MapTitle", "LayoutTitle", "FileName" ' Currently all use the same settings
 
-'Declare Function SMSDLGCloseClonedWindow() As Logical
 Declare Function SMSDLGGetDelayNextSiteItem() As Integer
 Declare Function SMSDLGGetDelayNextSiteMiliSecs() As Integer
 Declare Function SMSDLGDelayOnNextSite() As Logical
@@ -42,3 +43,8 @@ Declare Function SMSDLGGetDelayPrintMiliSecs() As Integer
 Declare Function SMSDLGDelayOnPrintWindow() As Logical
 
 Declare Function SMSDLGCreateCopiesOfMainWindow() As Logical
+
+Declare Function SMSDLGAddLogToMessageWindow() As Logical
+Declare Sub SMSDLGSetAddLogToMessageWindow(ByVal bValue As Logical)
+Declare Function SMSDLGAddLogToLogFile() As Logical
+Declare Sub SMSDLGSetAddLogToLogFile(ByVal bValue As Logical)

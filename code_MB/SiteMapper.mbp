@@ -9,5 +9,6 @@ Module=Library\ERRORLib.mbo
 Module=Library\RibbonLib.mbo
 Module=Library\STRINGLib.mbo
 Module=Library\TABLELib.mbo
+Module=Library\WINDOWLib.mbo
 Module=SiteMapper_x64.mbo
 Module=SMSDLG_SiteMapperSetup.mbo

@@ -2,6 +2,7 @@
 
 Include "Library\ARRAYLib.def"
 Include "Library\ConfigFileLib.def"
+Include "Library\WINDOWLib.def"
 
 Include "SMSDLG_SiteMapperSetup.def"
 
@@ -53,7 +54,6 @@ Define	CTRL_TXT_OUTPUT_FOLDER			251
 Define	CTRL_CMD_OUTPUT_FOLDER_BROWSE		252
 Define	CTRL_LBL_ADD_VALUES_TO_LAYOUT		300
 Define	CTRL_LBL_ADD_VALUES_TO_LAYOUT2	301
-'Define	CTRL_CHK_CLOSE_CLONED_WINDOWS		310
 Define	CTRL_LBL_DELAY_ON_NEXTSITE		400
 Define	CTRL_LST_DELAY_ON_NEXTSITE		401
 Define	CTRL_LBL_DELAY_ON_PRINT			410
@@ -84,7 +84,6 @@ Declare Sub Handler_Site1AddLayerClicked
 Declare Sub Handler_Site2AddLayerClicked
 Declare Sub Handler_CreatePDFClicked
 Declare Sub Handler_CreateImageClicked
-'Declare Sub Handler_CloseClonedWinClicked
 Declare Sub Handler_ShowDelayNextSiteDlg
 Declare Sub Handler_ShowDelayPrintDlg
 Declare Sub Handler_BrowseFolderClicked
@@ -98,14 +97,14 @@ Declare Method FILEBrowseForFolder
 		) As String
 
 
-Dim	astrMapperNames(), astrLayoutNames() as string ' map and layout names
-Dim	mnNumLayouts, mnNumMappers, aintMapperIDs(), aintLayoutIDs() as integer ' map and layout names
+Dim	astrMapperNames(), astrLayoutNames() As String ' map and layout names
+Dim	mnNumLayouts, mnNumMappers, mnNumMappersAll, aintMapperIDs(), aintLayoutIDs() as integer ' map and layout names
 Dim	marrFrameMapNames1(), marrFrameMapNames2(), marrSite1TableNames(), marrSite2TableNames(), marrSite1ColNames(), marrSite1CharColNames(), marrSite2ColNames() As String
 Dim	marrFrameMapIDs1(), marrFrameMapIDs2() As Integer
 Dim	marrSite1ColNamesUnique() as string
 Dim	marrPDFNames() As String
 
-Dim	mnWindowType, mnSelectedWindowItem, marrSelectedMapperWID(2), mnSelectedLayoutWID, mnPDFDriver, mnImageResolution, mnFileNameType As Integer,
+Dim	mnWindowType, mnSelectedWindowItem, marrSelectedMapperWID(2), mnSelectedMainWID, mnPDFDriver, mnImageResolution, mnFileNameType As Integer,
 	mnDelayNextSiteItem, mnDelayPrintItem As Integer,
 	marrSiteTab(2), marrColumnSiteID(2), msColumnFileName As String,
 	msOutputFolder As String,
@@ -113,14 +112,16 @@ Dim	mnWindowType, mnSelectedWindowItem, marrSelectedMapperWID(2), mnSelectedLayo
 	marrZoomType(2) As Integer,
 	marrKeepZoom(2), marrAddSiteAsLayer(2), marrStyleOverrideSiteLayer(2), marrTurnOffSiteLayer(2) As Logical,
 	mbPrintJPG, mbPrintPNG, mbPrintPDF, mbWinTitleAndFileNameProperCaseAs As Logical,
-'	mbCloseClonedWindows As Logical,
-	mbCreateCopiesOfMainWindow, mbExportMapWindow As Logical
+	mbCreateCopiesOfMainWindow As Logical,
+	mbAddLoggingToLogFile, mbAddLoggingToMessageWindow As Logical
 '*******************************************************************************
 ' OpenDialog PROCEDURE
 '*******************************************************************************
 Function SMSDLG_SiteMapperSetup() As Logical
 
 Dim	nWin as integer
+
+OnError GoTo ErrorOccured
 
 SMSDLG_SiteMapperSetup = FALSE
 
@@ -129,8 +130,9 @@ SMSDLG_SiteMapperSetup = FALSE
 	ReDim aintMapperIDs(0)
 	ReDim aintLayoutIDs(0)
 
-	mnNumLayouts = 0
-	mnNumMappers = 0
+	mnNumLayouts 		= 0
+	mnNumMappers 		= 0
+	mnNumMappersAll 	= 0
 
 	' Load PDF Driver Names here
 	Call SMSDLGLoadPDFPrinterDriverNames
@@ -139,9 +141,13 @@ SMSDLG_SiteMapperSetup = FALSE
 	For nWin = 1 to NumWindows()
 		Do Case WindowInfo(nWin,WIN_INFO_TYPE)
 			Case WIN_MAPPER
-				Call ARRAYAddValueString(astrMapperNames, WindowInfo(nWin, WIN_INFO_NAME))
-				Call ARRAYAddValueInteger(aintMapperIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
-
+				mnNumMappersAll = mnNumMappersAll + 1
+				If WindowInfo(nWin, WIN_INFO_PARENT_LAYOUT) = 0 Then
+					Call ARRAYAddValueString(astrMapperNames, WindowInfo(nWin, WIN_INFO_NAME))
+					Call ARRAYAddValueInteger(aintMapperIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
+				Else
+					'**Map window is embedded in a layout window
+				End If
 			Case WIN_LAYOUT_DESIGNER
 				Call ARRAYAddValueString(astrLayoutNames, WindowInfo(nWin, WIN_INFO_NAME))
 				Call ARRAYAddValueInteger(aintLayoutIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
@@ -152,12 +158,10 @@ SMSDLG_SiteMapperSetup = FALSE
 	mnNumMappers	= Ubound(astrMapperNames)
 	mnNumLayouts	= Ubound(astrLayoutNames)
 
-	If mnNumMappers = 0 then
-		Note "You must have at least one Mapper open to use this tool"
+	If mnNumMappersAll = 0 then
+		Note "You must have at least one Map Window or one Layout Window with an embedded Map Window open to use this tool"
 		Exit Sub
 	End If
-
-	OnError goto 0
 
 	Dialog
 		Title "Site Mapper - Batch Printing Tool"
@@ -178,7 +182,7 @@ SMSDLG_SiteMapperSetup = FALSE
 			Position 110,15		ID CTRL_LST_MAPPER_OR_LAYOUT
 			Width 65
 			Calling Handler_WindowTypeClicked
-			Value mnWindowType
+			Value SMSDLGExportWindowType()
 
 		Control StaticText
 			Title "Select template window:" ' could be either mapper/layout
@@ -299,7 +303,7 @@ SMSDLG_SiteMapperSetup = FALSE
 			Position 10,255
 '			Width 100
 		Control PopupMenu
-			Title "Centroid;Full Extent;Don't Change"
+			Title "Center of MBR;Full Extent;Don't Change"
 			Position 110,253		ID CTRL_LST_ZOOM_TYPE_1
 			Calling Handler_OnZoomType1Clicked
 			Value SMSDLGGetZoomType(1)
@@ -324,7 +328,7 @@ SMSDLG_SiteMapperSetup = FALSE
 			Calling Handler_UseSpecificZoom1Clicked
 
 		Control StaticText
-			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the centroid, full extent"
+			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the center of the MBR, full extent"
 					+ " (for polygons, polylines and multiple records) or don't change at all."
 			Position 185,245
 			Width 160		Height 40
@@ -401,7 +405,7 @@ SMSDLG_SiteMapperSetup = FALSE
 			Position 365,255
 '			Width 100
 		Control PopupMenu
-			Title "Centroid;Full Extent;Don't Change"
+			Title "Center of MBR;Full Extent;Don't Change"
 			Position 465,253		ID CTRL_LST_ZOOM_TYPE_2
 			Calling Handler_OnZoomType2Clicked
 			Value SMSDLGGetZoomType(2)
@@ -426,7 +430,7 @@ SMSDLG_SiteMapperSetup = FALSE
 			Calling Handler_UseSpecificZoom2Clicked
 
 		Control StaticText
-			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the centroid, full extent"
+			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the center of the MBR, full extent"
 					+ " (for polygons, polylines and multiple records) or don't change at all."
 			Position 540,245
 			Width 160		Height 40
@@ -438,7 +442,7 @@ SMSDLG_SiteMapperSetup = FALSE
 			Width 350		Height 125
 		Control StaticText
 			Title "Filename using:"
-			Position 365, 15		ID CTRL_LBL_FILENAME_COLUMN		'27
+			Position 365, 15		ID CTRL_LBL_FILENAME_COLUMN
 			Width 100
 		Control PopupMenu ' Filename type
 			Position 365, 25		ID CTRL_LST_FILENAME_TYPES
@@ -450,11 +454,11 @@ SMSDLG_SiteMapperSetup = FALSE
 			Title "ProperCase:"
 			Position 475, 28
 		Control Checkbox
-			Position 520, 28		ID CTRL_CHK_USE_PROPER_CASE		'35
+			Position 520, 28		ID CTRL_CHK_USE_PROPER_CASE
 			Value SMSDLGUseProperCase("MapTitle")
 
 		Control PopupMenu ' column names for Filename
-			Position 365, 40		ID CTRL_LST_FILENAME_COLUMN		'28
+			Position 365, 40		ID CTRL_LST_FILENAME_COLUMN
 			Width 100
 		Control StaticText
 			Title "Unique:"
@@ -542,7 +546,7 @@ SMSDLG_SiteMapperSetup = FALSE
 		'****************************************************************
 		Control Checkbox
 			Position 6,290		ID CTRL_CHK_CLONE_MAIN_WINDOW
-			Title "Clone main window for each 'child' site and keep these cloned windows open."
+			Title "Clone main window for each 'child' site and keep these cloned windows open. Not recommended for many sites."
 			Value SMSDLGCreateCopiesOfMainWindow()
 
 		'****************************************************************
@@ -568,21 +572,6 @@ SMSDLG_SiteMapperSetup = FALSE
 			Position 5, 345		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT2
 			Width 700 height 35
 			ID	56
-
-		'****************************************************************
-'		Control Checkbox
-'			Position 6,380		ID CTRL_CHK_CLOSE_CLONED_WINDOWS
-'			Width 10
-'			Title ""
-'			Value FALSE
-'			Calling Handler_CloseClonedWinClicked
-'			Hide
-'		Control StaticText
-'			Title "Close cloned mapper or layout window after exporting. Recommended if you are generating a large number of maps. "+
-'				"Untick if you want to keep the windows open."
-'			Position 25,375
-'			Width 300 Height 18
-'			Hide
 
 		Control StaticText
 			Title "Add delay before next 'child' site:"
@@ -620,7 +609,6 @@ SMSDLG_SiteMapperSetup = FALSE
 			Position 575,381		ID CTRL_CMD_OK
 			calling Handler_OKClicked
 			Width 60
-			Disable
 		Control CancelButton
 			Title "Close"
 			Position 640,381
@@ -631,6 +619,11 @@ SMSDLG_SiteMapperSetup = FALSE
 		SMSDLG_SiteMapperSetup = TRUE
 	End If
 
+	Exit Function
+'--------------------
+ErrorOccured:
+	Note Err() & " " & Error$() & " SMSDLG_SiteMapperSetup()"
+
 End Function
 
 '*******************************************************************************
@@ -638,14 +631,20 @@ End Function
 '*******************************************************************************
 Sub Handler_OnDialogLoad
 
+OnError GoTo ErrorOccured
+
 	If mnNumLayouts = 0 Then ' If there are no Layout windows (only mappers) then
-		alter Control CTRL_LBL_MAPPER_OR_LAYOUT Disable ' disable control text for mapper/layout (as only mappers)
-		alter control CTRL_LST_MAPPER_OR_LAYOUT Value 1 ' Select Mapper from popup
-		alter Control CTRL_LST_MAPPER_OR_LAYOUT Disable ' disable, as no layouts open
+		Alter Control CTRL_LBL_MAPPER_OR_LAYOUT Disable ' disable control text for mapper/layout (as only mappers)
+		Alter Control CTRL_LST_MAPPER_OR_LAYOUT Disable ' disable, as no layouts open
+		Alter Control CTRL_LST_MAPPER_OR_LAYOUT Value 1 ' Select Mapper from popup
+	ElseIf mnNumMappers = 0 Then
+		Alter Control CTRL_LBL_MAPPER_OR_LAYOUT Disable
+		Alter Control CTRL_LST_MAPPER_OR_LAYOUT Disable ' enable, as layouts exist
+		Alter Control CTRL_LST_MAPPER_OR_LAYOUT Value 2 ' Select Layout from popup
 	Else
-		alter Control CTRL_LBL_MAPPER_OR_LAYOUT enable
-		alter Control CTRL_LST_MAPPER_OR_LAYOUT enable ' enable, as layouts exist
-		alter control CTRL_LST_MAPPER_OR_LAYOUT Value 2 ' Select Layout from popup
+		Alter Control CTRL_LBL_MAPPER_OR_LAYOUT Enable
+		Alter Control CTRL_LST_MAPPER_OR_LAYOUT Enable ' enable, as layouts exist
+		Alter Control CTRL_LST_MAPPER_OR_LAYOUT Value SMSDLGExportWindowType()
 	End If
 
 	Call Handler_WindowTypeClicked
@@ -664,7 +663,10 @@ Sub Handler_OnDialogLoad
 
 	Call Handler_FileNameTypeClicked
 
-'	Call Handler_CloseClonedWinClicked
+	Exit Sub
+'--------------------
+ErrorOccured:
+	Note Err() & " " & Error$() & " Handler_OnDialogLoad"
 
 End Sub
 
@@ -673,7 +675,18 @@ End Sub
 '*******************************************************************************
 Sub Handler_OKClicked
 
+OnError GoTo ErrorOccured
+
 	' >>>>>>>>>>>>>>>>>> This section Reads Control Values <<<<<<<<<<<<<<<<<<<<
+
+	'******* CLONE & DELAY OPTION SETTINGS ***************************************************
+	'Read Control Value for delay
+	mnDelayNextSiteItem			= ReadControlValue(CTRL_LST_DELAY_ON_NEXTSITE)
+	mnDelayPrintItem			= ReadControlValue(CTRL_LST_DELAY_ON_PRINT)
+
+	'Read Control Value for Cloning Main Window
+	mbCreateCopiesOfMainWindow	= ReadControlValue(CTRL_CHK_CLONE_MAIN_WINDOW)
+
 
 	'******* OUTPUT SETTINGS ***************************************************
 	' Read Control Values for print JPG, PNG and PDF Checkboxes
@@ -683,9 +696,11 @@ Sub Handler_OKClicked
 
 	' check user has selected at least one export option
 	If Not SMSDLGExportToFormat("JPG")  and Not SMSDLGExportToFormat("PNG") and Not SMSDLGExportToFormat("PDF") Then
-		Note "No export options selected."
-		Dialog Preserve
-		Exit Sub
+		If not SMSDLGCreateCopiesOfMainWindow() Then
+			Note "Please select at least one export option or the 'Clone Main Window' copies option."
+			Dialog Preserve
+			Exit Sub
+		End If
 	End If
 
 	' Read Control Value for Output folder
@@ -739,24 +754,25 @@ Sub Handler_OKClicked
 	' Read Control for Window Type
 	mnWindowType = ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT)
 
-	'Read Control Value for Map or Layout Export
-	If mnWindowType = 1 then ' export Mapper ...
-		mbExportMapWindow = True
-	Else ' export Layout ...
-		mbExportMapWindow = False
-	End if
+'	'Read Control Value for Map or Layout Export
+'	If mnWindowType = 1 then ' export Mapper ...
+'		mbExportMapWindow = True
+'	Else ' export Layout ...
+'		mbExportMapWindow = False
+'	End if
 
 	mnSelectedWindowItem = ReadControlValue(CTRL_LST_WINDOW_NAMES)
 
-	mnSelectedLayoutWID 	= 0
+	mnSelectedMainWID	 	= 0
 	marrSelectedMapperWID(1) = 0
 	marrSelectedMapperWID(2) = 0
 
-	'Read Control Values for which Map and Layout to Clone
-	If mbExportMapWindow then 'if Mapper selected, get Mapper win title
+	'Read Control Values for which Map and Layout to use
+	If SMSDLGExportMapWindow() then 	'if Mapper selected, get Mapper Window ID
+		mnSelectedMainWID		= aintMapperIDs(mnSelectedWindowItem)
 		marrSelectedMapperWID(1) = aintMapperIDs(mnSelectedWindowItem)
 	Else  'if Layout selected, get layout win title
-		mnSelectedLayoutWID 	= aintLayoutIDs(mnSelectedWindowItem)
+		mnSelectedMainWID 		= aintLayoutIDs(mnSelectedWindowItem)
 
 		marrSelectedMapperWID(1) = marrFrameMapIDs1(ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY))
 		marrSelectedMapperWID(2) = marrFrameMapIDs2(ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY))
@@ -801,16 +817,10 @@ Sub Handler_OKClicked
 	marrKeepZoom(1)			= ReadControlValue(CTRL_CHK_KEEP_CURRENT_ZOOM_1)
 	marrKeepZoom(2)			= ReadControlValue(CTRL_CHK_KEEP_CURRENT_ZOOM_2)
 
-	'******* CLONE OPTIONS SETTINGS ***************************************************
-	' Read Control Value for close Map and Layout after export
-'	mbCloseClonedWindows		= ReadControlValue(CTRL_CHK_CLOSE_CLONED_WINDOWS)
-
-	'Read Control Value for delay
-	mnDelayNextSiteItem			= ReadControlValue(CTRL_LST_DELAY_ON_NEXTSITE)
-	mnDelayPrintItem			= ReadControlValue(CTRL_LST_DELAY_ON_PRINT)
-
-	'Read Control Value for Cloning Main Window
-	mbCreateCopiesOfMainWindow	= ReadControlValue(CTRL_CHK_CLONE_MAIN_WINDOW)
+	Exit Sub
+'--------------------
+ErrorOccured:
+	Note Err() & " " & Error$() & " Handler_OKClicked"
 
 End Sub
 
@@ -861,20 +871,6 @@ Sub Handler_LayoutMap2Clicked
 
 End Sub
 
-'*******************************************************************************
-'Handler_CloseClonedWinClicked
-'*******************************************************************************
-'Sub Handler_CloseClonedWinClicked
-'
-'	If ReadControlValue(CTRL_CHK_CLOSE_CLONED_WINDOWS) = 1 then
-'		alter Control CTRL_LBL_DELAY_ON_NEXTSITE enable
-'		alter Control CTRL_LST_DELAY_ON_NEXTSITE enable
-'	Else
-'		alter Control CTRL_LBL_DELAY_ON_NEXTSITE Disable
-'		alter Control CTRL_LST_DELAY_ON_NEXTSITE Disable
-'	End If
-'
-'End Sub
 '*******************************************************************************
 'Handler_OnZoomType1Clicked
 '*******************************************************************************
@@ -1032,12 +1028,9 @@ End Sub
 '*******************************************************************************
 Sub Handler_UseSpecificZoom2Clicked
 
-'	Print "Handler_UseSpecificZoom2Clicked"
 	If ReadControlValue(CTRL_CHK_KEEP_CURRENT_ZOOM_2) Then
-'		Print "  -> Alter Control CTRL_TXT_ZOOM_WIDTH_2 Disable"
 		Alter Control CTRL_TXT_ZOOM_WIDTH_2 Disable
 	Else
-'		Print "  -> Alter Control CTRL_TXT_ZOOM_WIDTH_2 Enable"
 		Alter Control CTRL_TXT_ZOOM_WIDTH_2 Enable
 	End If
 
@@ -1088,13 +1081,10 @@ Dim 	j, nLayer, nNumLayers, nWID as integer
 	nNumLayers = MapperInfo(nWID, MAPPER_INFO_LAYERS)
 
 	Redim marrSite1TableNames(0)
-'	marrSite1TableNames(1) = "- Select Layer -" ' first value in array is blank
 	Call ARRAYAddValueString(marrSite1TableNames, "- Select Layer -")
 
 	For nLayer = 1 to nNumLayers
 		If LayerInfo(nWID, nLayer, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then
-		'	j = j + 1
-		'	marrSite1TableNames(j) = LayerInfo(nWID, nLayer, LAYER_INFO_NAME)
 			Call ARRAYAddValueString(marrSite1TableNames, LayerInfo(nWID, nLayer, LAYER_INFO_NAME))
 		End If
 	Next
@@ -1118,19 +1108,10 @@ dim	k, j, nNumFrames, nNumLayers, nMID, nWID, intCountMapperFrames as integer
 	nWID			= aintLayoutIDs(ReadControlValue(CTRL_LST_WINDOW_NAMES))
 	nNumFrames	= LayoutInfo(nWID,LAYOUT_INFO_NUM_ITEMS)
 
-'	Redim marrFrameMapNames1(nNumFrames + 1)
-'	Redim marrFrameMapIDs1(nNumFrames + 1)
-'	marrFrameMapNames1(1) = "- Select Map Frame -" 	' first value in array is blank
-
 	Redim marrFrameMapNames1(0)
 	Redim marrFrameMapIDs1(0)
 	Call ARRAYAddValueString(marrFrameMapNames1, "- Select Map Frame -")
 	Call ARRAYAddValueInteger(marrFrameMapIDs1, 0)
-
-'	Redim marrFrameMapNames2(nNumFrames + 2)
-'	Redim marrFrameMapIDs2(nNumFrames + 2)
-'	marrFrameMapNames2(1) = "- Select Map Frame -" 	' first value in array is blank
-'	marrFrameMapNames2(2) = "- No Seconday Map -" 	' secondary value in array is blank
 
 	Redim marrFrameMapNames2(0)
 	Redim marrFrameMapIDs2(0)
@@ -1143,10 +1124,6 @@ dim	k, j, nNumFrames, nNumLayers, nMID, nWID, intCountMapperFrames as integer
 			nMID = LayoutItemInfo(nWID,k,LAYOUT_ITEM_INFO_WIN) 'get mapper frame id
 
 			intCountMapperFrames					= intCountMapperFrames + 1
-'			marrFrameMapIDs1(intCountMapperFrames + 1)	= nMID
-'			marrFrameMapNames1(intCountMapperFrames + 1)	= WindowInfo(nMID, WIN_INFO_NAME)
-'			marrFrameMapIDs2(intCountMapperFrames + 2)	= nMID
-'			marrFrameMapNames2(intCountMapperFrames + 2)	= WindowInfo(nMID, WIN_INFO_NAME)
 
 			Call ARRAYAddValueString(marrFrameMapNames1, WindowInfo(nMID, WIN_INFO_NAME))
 			Call ARRAYAddValueInteger(marrFrameMapIDs1, nMID)
@@ -1154,9 +1131,6 @@ dim	k, j, nNumFrames, nNumLayers, nMID, nWID, intCountMapperFrames as integer
 			Call ARRAYAddValueInteger(marrFrameMapIDs2, nMID)
 		End If
 	Next
-
-'	Redim marrFrameMapNames1(intCountMapperFrames + 1)
-'	Redim marrFrameMapNames2(intCountMapperFrames + 2)
 
 	' update popup menu	with list of layers in Layout
 	Alter Control CTRL_LST_LAYOUT_MAP_PRIMARY	Title from variable marrFrameMapNames1
@@ -1190,10 +1164,7 @@ dim 	j, nLayer, nNumLayers, nMID, intCountLayers as integer
 	nMID			= marrFrameMapIDs1(ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY))
 	Redim marrSite1TableNames(0)
 
-'	Redim marrSite1TableNames(nNumLayers + 1)
-'	marrSite1TableNames(1) = "- Select Layer -" ' first value in array is blank
 	Call ARRAYAddValueString(marrSite1TableNames, "- Select Layer -")
-
 
 	If nMID <> 0 Then
 		nNumLayers = MapperInfo(nMID, MAPPER_INFO_LAYERS)
@@ -1201,7 +1172,6 @@ dim 	j, nLayer, nNumLayers, nMID, intCountLayers as integer
 		For nLayer = 1 to nNumLayers
 			If LayerInfo(nMID, nLayer, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then
 				intCountLayers						= intCountLayers + 1
-				'marrSite1TableNames(intCountLayers + 1)	= LayerInfo(nMID, nLayer, LAYER_INFO_NAME)
 				Call ARRAYAddValueString(marrSite1TableNames, LayerInfo(nMID, nLayer, LAYER_INFO_NAME))
 			End If
 		Next
@@ -1241,7 +1211,6 @@ Dim	nLayer, j, nNumLayers, nMID, intCountLayers as integer
 		For nLayer = 1 to nNumLayers
 			If LayerInfo(nMID, nLayer, LAYER_INFO_TYPE) = LAYER_INFO_TYPE_NORMAL Then
 				intCountLayers						= intCountLayers + 1
-				'marrSite2TableNames(intCountLayers + 1)	= LayerInfo(nMID, nLayer, LAYER_INFO_NAME)
 				Call ARRAYAddValueString(marrSite2TableNames, LayerInfo(nMID, nLayer, LAYER_INFO_NAME))
 			End If
 		Next
@@ -1264,9 +1233,13 @@ End Sub
 Sub Handler_FileNameTypeClicked
 
 	If ReadControlValue(CTRL_LST_FILENAME_TYPES) = 1 Then
+		If UBound(marrSite1CharColNames()) = 0 Then
+'			Note "This table does not contain any character fields. Please use either Counter or SiteID for naming your files"
+			Alter Control CTRL_LST_FILENAME_TYPES Value 2
+			Exit Sub
+		End If
+
 		Alter Control CTRL_LST_FILENAME_COLUMN Enable
-		Note "This table does not contain any character fields. Please use either Counter or SiteID for naming your files"
-		Alter Control CTRL_LST_FILENAME_TYPES Value 2
 	Else
 		Alter Control CTRL_LST_FILENAME_COLUMN Disable
 	End If
@@ -1347,13 +1320,8 @@ dim sTab, sColName, strCMD as string
 			End If
 		Next
 
-		If UBound(marrSite1CharColNames()) > 0 then
-			Alter Control CTRL_LST_FILENAME_COLUMN Title from variable marrSite1CharColNames()
-			Alter Control CTRL_CMD_OK enable
-'		Else
-'			Alter Control CTRL_CMD_OK disable
-'			Note sTab + " does not contain any character fields with unique values. Please ensure table has at least one character column with unique values."
-		End If
+		Alter Control CTRL_LST_FILENAME_COLUMN Title from variable marrSite1CharColNames()
+		Call Handler_FileNameTypeClicked
 
 		Alter Control CTRL_LST_SITE1_ID_COLS Title from variable marrSite1ColNames()
 
@@ -1403,8 +1371,16 @@ Sub Handler_Site2ColumnsClicked
 End Sub
 
 '**********************************************************************
+Function SMSDLGExportWindowType() As Integer		'1 = Map Window; 2 = Layout Window
+	If mnWindowType = 0 Then
+		mnWindowType = 1
+	End If
+	SMSDLGExportWindowType = mnWindowType
+End Function
+
+'**********************************************************************
 Function SMSDLGExportMapWindow() As Logical
-	SMSDLGExportMapWindow = mbExportMapWindow
+	SMSDLGExportMapWindow = (SMSDLGExportWindowType() = 1)
 End Function
 
 '**********************************************************************
@@ -1439,13 +1415,18 @@ Function SMSDLGSelectedMapperWID(ByVal nLevel As Integer) As Integer
 	End If
 End Function
 '**********************************************************************
-Function SMSDLGUseSecondaryMap() As Integer
+Function SMSDLGUseSecondaryMap() As Logical
 	SMSDLGUseSecondaryMap = (marrSelectedMapperWID(2) <> 0)
 End Function
+'**********************************************************************
+Function SMSDLGNumberOfMaps() As Integer
+	SMSDLGNumberOfMaps = IIf(SMSDLGUseSecondaryMap(), 2, 1)
+End Function
+
 
 '**********************************************************************
 Function SMSDLGSelectedLayoutWID() As Integer
-	SMSDLGSelectedLayoutWID = mnSelectedLayoutWID
+	SMSDLGSelectedLayoutWID = mnSelectedMainWID
 End Function
 
 '**********************************************************************
@@ -1576,10 +1557,7 @@ End Function
 '**********************************************************************
 Function SMSDLGQuerySiteTab(ByVal nLevel As Integer) As Logical
 	SMSDLGQuerySiteTab = FALSE
-
-	If SMSDLGExportMapWindow() Then
-		Exit Function
-	ElseIf SMSDLGGetSiteTab(nLevel) = "" Then
+	If SMSDLGGetSiteTab(nLevel) = "" Then
 		Exit Function
 	ElseIf SMSDLGGetSiteColumn(nLevel, "SITEID") = "" Then
 		Exit Function
@@ -1676,11 +1654,6 @@ Function SMSDLGUseProperCase(ByVal sType As String) As Logical	'"MapTitle", "Lay
 End Function
 
 '**********************************************************************
-'Function SMSDLGCloseClonedWindow() As Logical
-'	SMSDLGCloseClonedWindow = mbCloseClonedWindows
-'End Function
-
-'**********************************************************************
 Function SMSDLGGetDelayNextSiteItem() As Integer
 	If mnDelayNextSiteItem = 0 Then
 		mnDelayNextSiteItem = 1
@@ -1735,12 +1708,36 @@ Function SMSDLGCreateCopiesOfMainWindow() As Logical
 	SMSDLGCreateCopiesOfMainWindow = mbCreateCopiesOfMainWindow
 End Function
 
+'**********************************************************************
+Function SMSDLGAddLogToMessageWindow() As Logical
+	SMSDLGAddLogToMessageWindow = mbAddLoggingToMessageWindow
+End Function
+'**********************************************************************
+Sub SMSDLGSetAddLogToMessageWindow(ByVal bValue As Logical)
+	mbAddLoggingToMessageWindow = bValue
+End Sub
+'**********************************************************************
+Function SMSDLGAddLogToLogFile() As Logical
+	SMSDLGAddLogToLogFile = mbAddLoggingToLogFile
+End Function
+'**********************************************************************
+Sub SMSDLGSetAddLogToLogFile(ByVal bValue As Logical)
+	mbAddLoggingToLogFile = bValue
+End Sub
+
 
 '**********************************************************************
 '**********************************************************************
 Sub SMSDLGSaveUserSettings(ByVal sFile As String)
 
 Dim	nLevel As Integer
+
+OnError GoTo ErrorOccured
+
+	Call CONFIGWriteKey(sFile, "OUTPUT", "WINDOWTYPE", Str$(SMSDLGExportWindowType()))
+
+	Call CONFIGWriteKey(sFile, "OUTPUT", "MAINWINDOWID", Str$(SMSDLGMainWID()))
+	Call CONFIGWriteKey(sFile, "OUTPUT", "MAINWINDOWNAME", WindowInfo(SMSDLGMainWID(), WIN_INFO_NAME))
 
 	Call CONFIGWriteKey(sFile, "OUTPUT", "JPG", IIf(SMSDLGExportToFormat("JPG"), 1, 0))
 	Call CONFIGWriteKey(sFile, "OUTPUT", "PNG", IIf(SMSDLGExportToFormat("PNG"), 1, 0))
@@ -1750,12 +1747,17 @@ Dim	nLevel As Integer
 	Call CONFIGWriteKey(sFile, "OUTPUT", "FILENAMETYPE", Str$(SMSDLGGetFileNameType()))
 	Call CONFIGWriteKey(sFile, "OUTPUT", "OUTPUTFOLDER", SMSDLGGetOutputFolder())
 
-
 	Call CONFIGWriteKey(sFile, "OUTPUT", "WAITONNEXTSITE", Str$(SMSDLGGetDelayNextSiteItem()))
 	Call CONFIGWriteKey(sFile, "OUTPUT", "WAITONPRINT", Str$(SMSDLGGetDelayPrintItem()))
 	Call CONFIGWriteKey(sFile, "OUTPUT", "CLONEMAINWINDOW", IIf(SMSDLGCreateCopiesOfMainWindow(), 1, 0))
 
 	For nLevel = 1 to 2
+		Call CONFIGWriteKey(sFile, "MAPWINDOW" & nLevel, "ID", Str$(SMSDLGSelectedMapperWID(nLevel)))
+		Call CONFIGWriteKey(sFile, "MAPWINDOW" & nLevel, "NAME", WindowInfo(SMSDLGSelectedMapperWID(nLevel), WIN_INFO_NAME))
+
+		Call CONFIGWriteKey(sFile, "SITETABLE" & nLevel, "NAME", SMSDLGGetSiteTab(nLevel))
+		Call CONFIGWriteKey(sFile, "SITETABLE" & nLevel, "SITEIDCOLUMN", SMSDLGGetSiteColumn(nLevel, "SITEID"))
+
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "ADDLAYER", IIf(SMSDLGAddSiteAsLayer(nLevel), 1, 0))
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "OVERRIDE", IIf(SMSDLGStyleOverideSiteLayer(nLevel), 1, 0))
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "TURNOFF", IIf(SMSDLGTurnOffSiteLayer(nLevel), 1, 0))
@@ -1765,17 +1767,34 @@ Dim	nLevel As Integer
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "ZOOMWIDTH", SMSDLGGetZoomWidth(nLevel))
 	Next
 
+	Call CONFIGWriteKey(sFile, "LOGGING", "MESSAGEWINDOW", IIf(SMSDLGAddLogToMessageWindow(), 1, 0))
+'	Call CONFIGWriteKey(sFile, "LOGGING", "TEXTFILE", IIf(SMSDLGAddLogToLogFile(), 1, 0))
+
+	Exit Sub
+'--------------------
+ErrorOccured:
+	Note Err() & " " & Error$() & " SMSDLGSaveUserSettings"
+
 End Sub
 
 '**********************************************************************
 '**********************************************************************
 Sub SMSDLGLoadUserSettings(ByVal sFile As String)
 
-Dim	nLevel As Integer
+Dim	nLevel, nWID As Integer,
+	sName As String
+
+OnError GoTo ErrorOccured
 
 	If not FileExists(sFile) Then
 		Exit Sub
 	End If
+
+	mnWindowType				= Val(CONFIGReadKey(sFile, "OUTPUT", "WINDOWTYPE"))
+
+'	mnSelectedMainWID			= Val(CONFIGReadKey(sFile, "OUTPUT", "MAINWINDOWID"))
+	sName					= CONFIGReadKey(sFile, "OUTPUT", "MAINWINDOWNAME")
+	mnSelectedMainWID			= WINGetIDFromTitle(sName)
 
 	mbPrintJPG				= (CONFIGReadKey(sFile, "OUTPUT", "JPG") = "1")
 	mbPrintPNG				= (CONFIGReadKey(sFile, "OUTPUT", "PNG") = "1")
@@ -1793,6 +1812,13 @@ Dim	nLevel As Integer
 	mbCreateCopiesOfMainWindow	= (CONFIGReadKey(sFile, "OUTPUT", "CLONEMAINWINDOW") = "1")
 
 	For nLevel = 1 to 2
+	'	marrSelectedMapperWID(nLevel)	= Val(CONFIGReadKey(sFile,  "MAPWINDOW" & nLevel, "ID"))
+		sName					= CONFIGReadKey(sFile, "MAPWINDOW" & nLevel, "NAME")
+		marrSelectedMapperWID(nLevel)	= WINGetIDFromTitle(sName)
+
+		marrSiteTab(nLevel)			= CONFIGReadKey(sFile, "SITETABLE" & nLevel, "NAME")
+		marrColumnSiteID(nLevel)		= CONFIGReadKey(sFile, "SITETABLE" & nLevel, "SITEIDCOLUMN")
+
 		marrAddSiteAsLayer(nLevel)		= (CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "ADDLAYER") = "1")
 		marrStyleOverrideSiteLayer(nLevel)	= (CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "OVERRIDE") = "1")
 		marrTurnOffSiteLayer(nLevel)		= (CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "TURNOFF") = "1")
@@ -1802,5 +1828,12 @@ Dim	nLevel As Integer
 		marrZoomWidth(nLevel)			= Val(CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "ZOOMWIDTH"))
 	Next
 
-End Sub
+	Call SMSDLGSetAddLogToMessageWindow(Not (CONFIGReadKey(sFile, "LOGGING", "MESSAGEWINDOW") = "0"))
+'	Call SMSDLGSetAddLogToLogFile(Not (CONFIGReadKey(sFile, "LOGGING", "TEXTFILE") = "0"))
 
+	Exit Sub
+'--------------------
+ErrorOccured:
+	Note Err() & " " & Error$() & " SMSDLGLoadUserSettings"
+
+End Sub
