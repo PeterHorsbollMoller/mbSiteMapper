@@ -53,6 +53,8 @@
 '		- Fixed an issue of using numeric site IDs
 '		- Storing and retrieving last used windows and tables - still not used in Setup Dialog
 '		- Setting for writing log details to message window added to Aboutbox
+' Updated Nov 2021, version 2.1.2
+'		- Added check for not open, non mappeable or empty child site table
 '*********************************************************
 
 include "MAPBASIC.DEF"
@@ -72,7 +74,7 @@ Include "SMSDLG_SiteMapperSetup.def"
 
 Define PATH_IMAGES		ApplicationDirectory$() & "_Icons\"
 Define xProgram 		"Site Mapper"
-Define xVersion 		"2.1.1"
+Define xVersion 		"2.1.2"
 Define xYear			"2021"
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "SiteMapper.ini"
@@ -751,55 +753,67 @@ OnError GoTo ErrorOccured
 
 	If nMID <> 0 Then
 		If TABIsOpen(sCurrentSiteTab) Then
-			oMBR		= MBR(CreateLine(TableInfo(sCurrentSiteTab, TAB_INFO_MINX)
-							, TableInfo(sCurrentSiteTab, TAB_INFO_MINY)
-							, TableInfo(sCurrentSiteTab, TAB_INFO_MAXX)
-							, TableInfo(sCurrentSiteTab, TAB_INFO_MAXY)))
-			oPoint	= Centroid(oMBR)
-		End If
+			If TableInfo(sCurrentSiteTab, TAB_INFO_MAPPABLE) Then
+				If TableInfo(sCurrentSiteTab, TAB_INFO_NROWS) > 0 Then
+					If nZoomType = 1 Then
+						oMBR		= MBR(CreateLine(TableInfo(sCurrentSiteTab, TAB_INFO_MINX)
+										, TableInfo(sCurrentSiteTab, TAB_INFO_MINY)
+										, TableInfo(sCurrentSiteTab, TAB_INFO_MAXX)
+										, TableInfo(sCurrentSiteTab, TAB_INFO_MAXY)))
+						oPoint	= Centroid(oMBR)
+					End If
 
-		' Pan and Zoom Mapper on Layout ...
-		Set Map Window nMID Redraw off
+					' Pan and Zoom Mapper on Layout ...
+					Set Map Window nMID Redraw off
 
-		If bAddCurrentSiteAsLayer Then ' if option to add selection to mapper is checked Then ...
-			Add map window nMID
-				layer sCurrentSiteTab
-				Position nSiteLayerID
-			If SMSDLGStyleOverideSiteLayer(nLevel) Then
-				Call UpdateLabelProperties(nLevel, nMID, nSiteLayerID)
-				Call UpdateStyleOverrideProperties(nLevel, nMID, nSiteLayerID)
+					If bAddCurrentSiteAsLayer Then ' if option to add selection to mapper is checked Then ...
+						Add map window nMID
+							layer sCurrentSiteTab
+							Position nSiteLayerID
+						If SMSDLGStyleOverideSiteLayer(nLevel) Then
+							Call UpdateLabelProperties(nLevel, nMID, nSiteLayerID)
+							Call UpdateStyleOverrideProperties(nLevel, nMID, nSiteLayerID)
+						End If
+					End If
+
+					Do Case nZoomType
+						Case 1 	'Set map centre to object centroid and zoom as specified by control
+							Call PrintLog("  Panning map window " + nMID + " to center of site.", SMSDLGAddLogToMessageWindow(), SMSDLGAddLogToLogFile())
+							If bDontChangeZoom Then
+								Set Map Window nMID
+									Center (CentroidX(oPoint), CentroidY(oPoint))
+							Else
+								Set Map Window nMID
+									Center (CentroidX(oPoint), CentroidY(oPoint))
+									Zoom fZoomWidth Units "km"
+							End If
+
+						Case 2  	' zoom map to extent of object
+							Call PrintLog("  Zooming map window " + nMID + " to Full Extent of site.", SMSDLGAddLogToMessageWindow(), SMSDLGAddLogToLogFile())
+							If not bAddCurrentSiteAsLayer Then ' if option to add selection to mapper is checked Then ...
+								' Add to map at position 1, to zoom to, Then remove
+								Add map window nMID layer sCurrentSiteTab Position 1 ' add layer at set position, so it can be removed
+								Set Map Window nMID
+									Zoom Entire Layer sCurrentSiteTab
+								Remove Map Window nMID Layer 1 ' remove site layer added
+							Else
+								Set Map Window nMID
+									Zoom Entire Layer sCurrentSiteTab
+							End If
+
+						Case 3 		' do not change map extent
+							Call PrintLog("  Not changing mapper extent.", SMSDLGAddLogToMessageWindow(), SMSDLGAddLogToLogFile())
+					End Case
+					Set Map Window nMID Redraw On
+				Else
+					Call PrintLog("  Child Site table '" & sCurrentSiteTab & "' holds no records.", TRUE, TRUE)
+				End If
+			Else
+				Call PrintLog("  Child Site table '" & sCurrentSiteTab & "' is not mappable.", TRUE, TRUE)
 			End If
+		Else
+			Call PrintLog("  Child Site table '" & sCurrentSiteTab & "' is not open.", TRUE, TRUE)
 		End If
-
-		Do Case nZoomType
-			Case 1 	'Set map centre to object centroid and zoom as specified by control
-				Call PrintLog("  Panning map window " + nMID + " to center of site.", SMSDLGAddLogToMessageWindow(), SMSDLGAddLogToLogFile())
-				If bDontChangeZoom Then
-					Set Map Window nMID
-						Center (CentroidX(oPoint), CentroidY(oPoint))
-				Else
-					Set Map Window nMID
-						Center (CentroidX(oPoint), CentroidY(oPoint))
-						Zoom fZoomWidth Units "km"
-				End If
-
-			Case 2  	' zoom map to extent of object
-				Call PrintLog("  Zooming map window " + nMID + " to Full Extent of site.", SMSDLGAddLogToMessageWindow(), SMSDLGAddLogToLogFile())
-				If not bAddCurrentSiteAsLayer Then ' if option to add selection to mapper is checked Then ...
-					' Add to map at position 1, to zoom to, Then remove
-					Add map window nMID layer sCurrentSiteTab Position 1 ' add layer at set position, so it can be removed
-					Set Map Window nMID
-						Zoom Entire Layer sCurrentSiteTab
-					Remove Map Window nMID Layer 1 ' remove site layer added
-				Else
-					Set Map Window nMID
-						Zoom Entire Layer sCurrentSiteTab
-				End If
-
-			Case 3 		' do not change map extent
-				Call PrintLog("  Not changing mapper extent.", SMSDLGAddLogToMessageWindow(), SMSDLGAddLogToLogFile())
-		End Case
-		Set Map Window nMID Redraw On
 	End If
 
 	Exit Sub
