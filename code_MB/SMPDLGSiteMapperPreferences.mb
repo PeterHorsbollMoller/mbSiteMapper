@@ -1,0 +1,434 @@
+﻿'*******************************************************************************
+'** 	Created By Peter Horsbøll Møller, Precisely
+'** 	Program:
+'** 	Modul:
+'**
+'*******************************************************************************
+
+'-------------------------------------
+Include "MapBasic.def"
+Include "Icons.def"
+Include "Menu.def"
+'**default constants...
+Include "Library\Defaults.def"
+
+'-------------------------------------
+Include "Library\CONFIGFILELib.def"
+Include "Library\DEBUGLib.def"
+Include "Library\ERRORLib.def"
+Include "Library\TABLELib.def"
+
+Include "SMPDLGSiteMapperPreferences.def"
+
+Define	CTRL_CHK_SHOW_CNTL_ON_HOME		101
+Define	CTRL_CHK_SHOW_CNTL_ON_LAYOUT		102
+Define	CTRL_CHK_SHOW_CNTL_ON_CUSTOM		103
+Define	CTRL_LBL_CUSTOM_TAB_CAPTION		201
+Define	CTRL_TXT_CUSTOM_TAB_CAPTION		202
+Define	CTRL_LBL_CUSTOM_TAB_NAME			203
+Define	CTRL_TXT_CUSTOM_TAB_NAME			204
+Define	CTRL_LBL_CUSTOM_GROUP_CAPTION		211
+Define	CTRL_TXT_CUSTOM_GROUP_CAPTION		212
+Define	CTRL_LBL_CUSTOM_GROUP_NAME		213
+Define	CTRL_TXT_CUSTOM_GROUP_NAME		214
+Define	CTRL_CHK_ADD_LOG_TO_MESSAGE_WIN	301
+Define	CTRL_CHK_ADD_LOG_TO_LOG_FILE		302
+
+Declare Sub SMPDLG_HandlerOKClicked
+Declare Sub SMPDLG_HandlerOnLoad
+Declare Sub SMPDLG_HandlerCustomTabClicked
+
+Dim	marrShowControlOnTab(3), mbAddLogToMessageWindow, mbAddLogToLogFile As Logical,
+	msCustomTabName, msCustomTabCaption, msCustomGroupName, msCustomGroupCaption As String
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function SMPDLGSiteMapperPreferences() As Logical
+
+OnError GoTo ErrorOccured
+
+SMPDLGSiteMapperPreferences = FALSE
+
+	Dialog
+		Title "Preferences"
+		Calling SMPDLG_HandlerOnLoad
+
+		Control CheckBox		ID CTRL_CHK_SHOW_CNTL_ON_HOME
+			Position 10,10
+			Title "Show Site Mapper control on Home tab"
+			Value SMPDLGShowControlOnTab("HOME")
+		Control CheckBox		ID CTRL_CHK_SHOW_CNTL_ON_LAYOUT
+			Position 10,25
+			Title "Show Site Mapper control on Layout tab"
+			Value SMPDLGShowControlOnTab("LAYOUT")
+		Control CheckBox		ID CTRL_CHK_SHOW_CNTL_ON_CUSTOM
+			Position 10,40
+			Title "Show Site Mapper control on Custom tab"
+			Value SMPDLGShowControlOnTab("CUSTOM")
+			Calling SMPDLG_HandlerCustomTabClicked
+
+		Control StaticText		ID CTRL_LBL_CUSTOM_TAB_NAME
+			Position 10,55		Width 80
+			Title "Custom Tab Name:"
+		Control EditText		ID CTRL_TXT_CUSTOM_TAB_NAME
+			Position 10,65		Width 80
+			Value SMPDLGCustomTabName()
+
+		Control StaticText		ID CTRL_LBL_CUSTOM_TAB_CAPTION
+			Position 100,55	Width 80
+			Title "Custom Tab Caption:"
+		Control EditText		ID CTRL_TXT_CUSTOM_TAB_CAPTION
+			Position 100,65	Width 80
+			Value SMPDLGCustomTabCaption()
+
+		Control StaticText		ID CTRL_LBL_CUSTOM_GROUP_NAME
+			Position 10,80		Width 80
+			Title "Custom Group Name:"
+		Control EditText		ID CTRL_TXT_CUSTOM_GROUP_NAME
+			Position 10,90		Width 80
+			Value SMPDLGCustomGroupName()
+
+		Control StaticText		ID CTRL_LBL_CUSTOM_GROUP_CAPTION
+			Position 100,80	Width 80
+			Title "Custom Group Name:"
+		Control EditText		ID CTRL_TXT_CUSTOM_GROUP_CAPTION
+			Position 100,90	Width 80
+			Value SMPDLGCustomGroupCaption()
+
+		Control CheckBox		ID CTRL_CHK_ADD_LOG_TO_MESSAGE_WIN
+			Position 10,110
+			Title "Add Log Messages to Message Window"
+			Value SMPDLGAddLogToMessageWindow()
+		Control CheckBox		ID CTRL_CHK_ADD_LOG_TO_LOG_FILE
+			Position 10,125
+			Title "Add Log Messages to Log File"
+			Value SMPDLGAddLogToLogFile()
+
+		Control OKButton
+			Calling SMPDLG_HandlerOKClicked
+		Control CancelButton
+
+	If CommandInfo(CMD_INFO_DLG_OK) Then
+		SMPDLGSiteMapperPreferences = TRUE
+	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLGSiteMapperPreferences")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub SMPDLG_HandlerOnLoad
+
+OnError GoTo ErrorOccured
+
+	Call SMPDLG_HandlerCustomTabClicked
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLG_HandlerOnLoad")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub SMPDLG_HandlerOKClicked
+
+OnError GoTo ErrorOccured
+
+	marrShowControlOnTab(1)	= ReadControlValue(CTRL_CHK_SHOW_CNTL_ON_HOME)
+	marrShowControlOnTab(2)	= ReadControlValue(CTRL_CHK_SHOW_CNTL_ON_LAYOUT)
+	marrShowControlOnTab(3)	= ReadControlValue(CTRL_CHK_SHOW_CNTL_ON_CUSTOM)
+
+	msCustomTabName		= ReadControlValue(CTRL_TXT_CUSTOM_TAB_NAME)
+	msCustomTabCaption		= ReadControlValue(CTRL_TXT_CUSTOM_TAB_CAPTION)
+	msCustomGroupName		= ReadControlValue(CTRL_TXT_CUSTOM_GROUP_NAME)
+	msCustomGroupCaption	= ReadControlValue(CTRL_TXT_CUSTOM_GROUP_CAPTION)
+
+	mbAddLogToMessageWindow	= ReadControlValue(CTRL_CHK_ADD_LOG_TO_MESSAGE_WIN)
+	mbAddLogToLogFile		= ReadControlValue(CTRL_CHK_ADD_LOG_TO_LOG_FILE)
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLG_HandlerOKClicked")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub SMPDLG_HandlerCustomTabClicked
+
+OnError GoTo ErrorOccured
+
+	If ReadControlValue(CTRL_CHK_SHOW_CNTL_ON_CUSTOM) Then
+		Alter Control CTRL_LBL_CUSTOM_TAB_CAPTION	Enable
+		Alter Control CTRL_TXT_CUSTOM_TAB_CAPTION	Enable
+		Alter Control CTRL_LBL_CUSTOM_TAB_NAME		Enable
+		Alter Control CTRL_TXT_CUSTOM_TAB_NAME		Enable
+		Alter Control CTRL_LBL_CUSTOM_GROUP_CAPTION	Enable
+		Alter Control CTRL_TXT_CUSTOM_GROUP_CAPTION	Enable
+		Alter Control CTRL_LBL_CUSTOM_GROUP_NAME	Enable
+		Alter Control CTRL_TXT_CUSTOM_GROUP_NAME	Enable
+	Else
+		Alter Control CTRL_LBL_CUSTOM_TAB_CAPTION	Disable
+		Alter Control CTRL_TXT_CUSTOM_TAB_CAPTION	Disable
+		Alter Control CTRL_LBL_CUSTOM_TAB_NAME		Disable
+		Alter Control CTRL_TXT_CUSTOM_TAB_NAME		Disable
+		Alter Control CTRL_LBL_CUSTOM_GROUP_CAPTION	Disable
+		Alter Control CTRL_TXT_CUSTOM_GROUP_CAPTION	Disable
+		Alter Control CTRL_LBL_CUSTOM_GROUP_NAME	Disable
+		Alter Control CTRL_TXT_CUSTOM_GROUP_NAME	Disable
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLG_HandlerCustomTabClicked")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function SMPDLGShowControlOnTab(ByVal sRibbonTab As String) As Logical
+
+OnError GoTo ErrorOccured
+
+	Do Case sRibbonTab
+		Case "HOME"
+			SMPDLGShowControlOnTab = marrShowControlOnTab(1)
+		Case "LAYOUT"
+			SMPDLGShowControlOnTab = marrShowControlOnTab(2)
+		Case "CUSTOM"
+			SMPDLGShowControlOnTab = marrShowControlOnTab(3)
+	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLGShowControlOnTab: Ribbon Tab:" & sRibbonTab)
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function SMPDLGCustomTabName() As String
+
+OnError GoTo ErrorOccured
+
+	If msCustomTabName = "" Then
+		msCustomTabName = "tabHandyTools"
+	End If
+	SMPDLGCustomTabName = msCustomTabName
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLGCustomTabName")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function SMPDLGCustomTabCaption() As String
+
+OnError GoTo ErrorOccured
+
+	If msCustomTabCaption = "" Then
+		msCustomTabCaption = "Handy Tools"
+	End If
+	SMPDLGCustomTabCaption = msCustomTabCaption
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLGCustomTabCaption")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function SMPDLGCustomGroupName() As String
+
+OnError GoTo ErrorOccured
+
+	If msCustomGroupName = "" Then
+		msCustomGroupName = "groupTools"
+	End If
+	SMPDLGCustomGroupName = msCustomGroupName
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLGCustomGroupName")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function SMPDLGCustomGroupCaption() As String
+
+OnError GoTo ErrorOccured
+
+	If msCustomGroupCaption = "" Then
+		msCustomGroupCaption = "Tools"
+	End If
+	SMPDLGCustomGroupCaption = msCustomGroupCaption
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLGCustomGroupCaption")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************
+Function SMPDLGAddLogToMessageWindow() As Logical
+
+OnError GoTo ErrorOccured
+
+	SMPDLGAddLogToMessageWindow = mbAddLogToMessageWindow
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLGAddLogToMessageWindow")
+	Call ERRShow()
+
+End Function
+'**********************************************************************
+Function SMPDLGAddLogToLogFile() As Logical
+
+OnError GoTo ErrorOccured
+
+	SMPDLGAddLogToLogFile = mbAddLogToLogFile
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMPDLGAddLogToLogFile")
+	Call ERRShow()
+
+End Function
+
+'**********************************************************************
+'**********************************************************************
+Sub SMPDLGSaveUserSettings(ByVal sFile As String)
+
+Dim	nLevel As Integer
+
+OnError GoTo ErrorOccured
+
+	Call CONFIGWriteKey(sFile, "RIBBON", "SHOWONHOME", IIf(SMPDLGShowControlOnTab("HOME"), 1, 0))
+	Call CONFIGWriteKey(sFile, "RIBBON", "SHOWONLAYOUT", IIf(SMPDLGShowControlOnTab("LAYOUT"), 1, 0))
+	Call CONFIGWriteKey(sFile, "RIBBON", "SHOWONCUSTOM", IIf(SMPDLGShowControlOnTab("CUSTOM"), 1, 0))
+
+	Call CONFIGWriteKey(sFile, "RIBBON", "CUSTOMTABNAME", SMPDLGCustomTabName())
+	Call CONFIGWriteKey(sFile, "RIBBON", "CUSTOMTABCAPTION", SMPDLGCustomTabCaption())
+	Call CONFIGWriteKey(sFile, "RIBBON", "CUSTOMGROUPNAME", SMPDLGCustomGroupName())
+	Call CONFIGWriteKey(sFile, "RIBBON", "CUSTOMGROUPCAPTION", SMPDLGCustomGroupCaption())
+
+	Call CONFIGWriteKey(sFile, "WRITELOGTO", "MESSAGEWINDOW", IIf(SMPDLGAddLogToMessageWindow(), 1, 0))
+	Call CONFIGWriteKey(sFile, "WRITELOGTO", "LOGFILE", IIf(SMPDLGAddLogToLogFile(), 1, 0))
+
+	Exit Sub
+'--------------------
+ErrorOccured:
+	Note Err() & " " & Error$() & " SMPDLGSaveUserSettings"
+
+End Sub
+
+'**********************************************************************
+'**********************************************************************
+Sub SMPDLGLoadUserSettings(ByVal sFile As String)
+
+Dim	nLevel, nWID As Integer,
+	sName As String
+
+OnError GoTo ErrorOccured
+
+	marrShowControlOnTab(1)		= TRUE
+	marrShowControlOnTab(2)		= TRUE
+	marrShowControlOnTab(3)		= TRUE
+
+	msCustomTabName			= "tabHandyTools"
+	msCustomTabCaption			= "Handy Tools"
+	msCustomGroupName			= "groupTools"
+	msCustomGroupCaption		= "Tools"
+
+	mbAddLogToMessageWindow		= FALSE
+	mbAddLogToLogFile			= TRUE
+
+	If not FileExists(sFile) Then
+		Exit Sub
+	End If
+
+	marrShowControlOnTab(1)		= Not (CONFIGReadKey(sFile, "RIBBON", "SHOWONHOME") = "0")
+	marrShowControlOnTab(2)		= Not (CONFIGReadKey(sFile, "RIBBON", "SHOWONLAYOUT") = "0")
+	marrShowControlOnTab(3)		= Not (CONFIGReadKey(sFile, "RIBBON", "SHOWONCUSTOM") = "0")
+
+	msCustomTabName			= CONFIGReadKey(sFile, "RIBBON", "CUSTOMTABNAME")
+	msCustomTabCaption			= CONFIGReadKey(sFile, "RIBBON", "CUSTOMTABCAPTION")
+	msCustomGroupName			= CONFIGReadKey(sFile, "RIBBON", "CUSTOMGROUPNAME")
+	msCustomGroupCaption		= CONFIGReadKey(sFile, "RIBBON", "CUSTOMGROUPCAPTION")
+
+	mbAddLogToMessageWindow		= (CONFIGReadKey(sFile, "WRITELOGTO", "MESSAGEWINDOW") = "1")
+	mbAddLogToLogFile			= Not (CONFIGReadKey(sFile, "WRITELOGTO", "LOGFILE") = "0")
+
+	Exit Sub
+'--------------------
+ErrorOccured:
+	Note Err() & " " & Error$() & " SMPDLGLoadUserSettings"
+
+End Sub

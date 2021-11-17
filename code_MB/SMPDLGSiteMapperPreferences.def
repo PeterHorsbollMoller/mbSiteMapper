@@ -1,0 +1,14 @@
+﻿Declare Function SMPDLGSiteMapperPreferences() As Logical
+
+Declare Function SMPDLGShowControlOnTab(ByVal sRibbonTab As String) As Logical
+
+Declare Function SMPDLGCustomTabName() As String
+Declare Function SMPDLGCustomTabCaption() As String
+Declare Function SMPDLGCustomGroupName() As String
+Declare Function SMPDLGCustomGroupCaption() As String
+
+Declare Function SMPDLGAddLogToMessageWindow() As Logical
+Declare Function SMPDLGAddLogToLogFile() As Logical
+
+Declare Sub SMPDLGSaveUserSettings(ByVal sFile As String)
+Declare Sub SMPDLGLoadUserSettings(ByVal sFile As String)

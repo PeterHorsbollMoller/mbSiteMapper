@@ -112,8 +112,7 @@ Dim	mnWindowType, mnSelectedWindowItem, marrSelectedMapperWID(2), mnSelectedMain
 	marrZoomType(2) As Integer,
 	marrKeepZoom(2), marrAddSiteAsLayer(2), marrStyleOverrideSiteLayer(2), marrTurnOffSiteLayer(2) As Logical,
 	mbPrintJPG, mbPrintPNG, mbPrintPDF, mbWinTitleAndFileNameProperCaseAs As Logical,
-	mbCreateCopiesOfMainWindow As Logical,
-	mbAddLoggingToLogFile, mbAddLoggingToMessageWindow As Logical
+	mbCreateCopiesOfMainWindow As Logical
 '*******************************************************************************
 ' OpenDialog PROCEDURE
 '*******************************************************************************
@@ -1468,8 +1467,8 @@ Dim	sMIVersion As String,
 	Redim marrPDFNames(3)
 	marrPDFNames(1) = "MapInfo PDF Printer Version " + sMIVersion + " x64"
 	marrPDFNames(2) = "Adobe PDF"
-	marrPDFNames(3) = "PDF995"
-'	marrPDFNames(4) = "Microsoft Print to PDF"
+	marrPDFNames(3) = "Microsoft Print to PDF"
+'	marrPDFNames(4) = "PDF995"
 
 End Sub
 
@@ -1493,9 +1492,9 @@ Dim	sMIVersion As String,
 		Case 2
 			SMSDLGGetPDFPrinterDriver$	= "Adobe PDF"
 		Case 3
-			SMSDLGGetPDFPrinterDriver$	= "PDF995"
+			SMSDLGGetPDFPrinterDriver$	= "Microsoft Print to PDF"
 '		Case 4
-'			SMSDLGGetPDFPrinterDriver$	= "Microsoft Print to PDF"
+'			SMSDLGGetPDFPrinterDriver$	= "PDF995"
 	End Case
 End Function
 
@@ -1708,23 +1707,6 @@ Function SMSDLGCreateCopiesOfMainWindow() As Logical
 	SMSDLGCreateCopiesOfMainWindow = mbCreateCopiesOfMainWindow
 End Function
 
-'**********************************************************************
-Function SMSDLGAddLogToMessageWindow() As Logical
-	SMSDLGAddLogToMessageWindow = mbAddLoggingToMessageWindow
-End Function
-'**********************************************************************
-Sub SMSDLGSetAddLogToMessageWindow(ByVal bValue As Logical)
-	mbAddLoggingToMessageWindow = bValue
-End Sub
-'**********************************************************************
-Function SMSDLGAddLogToLogFile() As Logical
-	SMSDLGAddLogToLogFile = mbAddLoggingToLogFile
-End Function
-'**********************************************************************
-Sub SMSDLGSetAddLogToLogFile(ByVal bValue As Logical)
-	mbAddLoggingToLogFile = bValue
-End Sub
-
 
 '**********************************************************************
 '**********************************************************************
@@ -1766,9 +1748,6 @@ OnError GoTo ErrorOccured
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "KEEPZOOM", IIf(SMSDLGKeepCurrentZoom(nLevel), 1, 0))
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "ZOOMWIDTH", SMSDLGGetZoomWidth(nLevel))
 	Next
-
-	Call CONFIGWriteKey(sFile, "LOGGING", "MESSAGEWINDOW", IIf(SMSDLGAddLogToMessageWindow(), 1, 0))
-'	Call CONFIGWriteKey(sFile, "LOGGING", "TEXTFILE", IIf(SMSDLGAddLogToLogFile(), 1, 0))
 
 	Exit Sub
 '--------------------
@@ -1827,9 +1806,6 @@ OnError GoTo ErrorOccured
 		marrKeepZoom(nLevel)			= (CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "KEEPZOOM") = "1")
 		marrZoomWidth(nLevel)			= Val(CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "ZOOMWIDTH"))
 	Next
-
-	Call SMSDLGSetAddLogToMessageWindow(Not (CONFIGReadKey(sFile, "LOGGING", "MESSAGEWINDOW") = "0"))
-'	Call SMSDLGSetAddLogToLogFile(Not (CONFIGReadKey(sFile, "LOGGING", "TEXTFILE") = "0"))
 
 	Exit Sub
 '--------------------
