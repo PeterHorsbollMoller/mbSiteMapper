@@ -16,6 +16,7 @@ Define	CTRL_LBL_LAYOUT_MAP_SECONDARY		111
 Define	CTRL_LST_LAYOUT_MAP_SECONDARY		112
 Define	CTRL_LST_SITE1_TABLE_NAMES		1001
 Define	CTRL_LST_SITE1_ID_COLS			1002
+Define	CTRL_LST_SITE1_UNIQUE_VALUES		1003
 Define	CTRL_LST_SITE2_TABLE_NAMES		2001
 Define	CTRL_LST_SITE2_ID_COLS			2002
 Define	CTRL_CHK_SITE1_ADD_LAYER			1012
@@ -72,7 +73,6 @@ Declare Sub Handler_GetMapFramesForLayout
 Declare Sub Handler_GetLayersForMapFrame1
 Declare Sub Handler_GetLayersForMapFrame2
 Declare Sub Handler_FileNameTypeClicked
-
 Declare Sub Handler_WindowTypeClicked
 Declare Sub Handler_OnZoomType1Clicked
 Declare Sub Handler_OnZoomType2Clicked
@@ -87,6 +87,9 @@ Declare Sub Handler_CreateImageClicked
 Declare Sub Handler_ShowDelayNextSiteDlg
 Declare Sub Handler_ShowDelayPrintDlg
 Declare Sub Handler_BrowseFolderClicked
+Declare Function Handler_SiteColumnOnlyUniqueValues(	  ByVal sTab As String
+											, ByVal sCol As String
+											) As Logical
 
 Declare Sub SMSDLGLoadPDFPrinterDriverNames()
 
@@ -111,6 +114,7 @@ Dim	mnWindowType, mnSelectedWindowItem, marrSelectedMapperWID(2), mnSelectedMain
 	marrZoomWidth(2) As Float,
 	marrZoomType(2) As Integer,
 	marrKeepZoom(2), marrAddSiteAsLayer(2), marrStyleOverrideSiteLayer(2), marrTurnOffSiteLayer(2) As Logical,
+	mbCheckForNonUniqueValues As Logical,
 	mbPrintJPG, mbPrintPNG, mbPrintPDF, mbWinTitleAndFileNameProperCaseAs As Logical,
 	mbCreateCopiesOfMainWindow As Logical
 '*******************************************************************************
@@ -230,211 +234,6 @@ SMSDLG_SiteMapperSetup = FALSE
 			Width 160		Height 55
 
 		'****************************************************************
-		Control GroupBox
-			Title "Sites Layer - Primary Map"
-			Position 5,135
-			Width 350		Height 100
-
-		Control StaticText
-			Position 11,148
-			'Width 35
-			Title "Site Layer:"
-		Control PopupMenu
-			Position 75,145			ID CTRL_LST_SITE1_TABLE_NAMES
-			width 100
-			Calling Handler_Site1LayersClicked
-
-		Control StaticText
-			Position 11,163
-			'Width 35
-			Title "Site ID Column:"
-		Control PopupMenu
-			Position 75,160			ID CTRL_LST_SITE1_ID_COLS
-			width 100
-			Calling Handler_Site1ColumnsClicked
-
-		Control StaticText
-			Position 11,180
-			Width 148
-			Title "Add each site as new query layer in mapper:"
-		Control Checkbox
-			Position 170,180			ID CTRL_CHK_SITE1_ADD_LAYER
-			Value SMSDLGAddSiteAsLayer(1)
-			Calling Handler_Site1AddLayerClicked
-
-		Control StaticText
-			Position 11,190			ID CTRL_LBL_SITE1_USE_LAYER_STYLES
-			Width 148 Height 26
-			Title "Use the style override and label properties of parent site layer (selected above) for the new child site layer:"
-			Disable
-		Control Checkbox
-			Position 170,198			ID CTRL_CHK_SITE1_USE_LAYER_STYLES
-			Value SMSDLGStyleOverideSiteLayer(1)
-			Disable
-
-		Control StaticText
-			Position 11, 218			ID CTRL_LBL_SITE1_OVERRIDE_LAYER
-			Width 148 Height 17
-			Title "Turn off the parent layer (selected above):"
-			Disable
-		Control Checkbox
-			Position 170,218			ID CTRL_CHK_SITE1_OVERRIDE_LAYER
-			Value SMSDLGTurnOffSiteLayer(1)
-			Disable
-
-		Control StaticText
-			Title "Select the 'parent' site layer (from the Mapper or Layout specified above) which includes the 'child' records"
-					+ " which will be used to generate each new map. Set the option to add each 'child' site as a layer in each new map."
-					+ " The 'child' site layer will be added at the same  position in the layer order as the 'parent' layer."
-					+ " Set the option to replicate the style override symbology and label properties for"
-					+ " the 'child' layer as the 'parent' layer."
-			Position 185,140
-			Width 160  Height 95
-
-		'****************************************************************
-		Control GroupBox ' Pan and Zoom controls Primary Map
-			Title "Map Pan and Zoom Settings - Primary Map"
-			Position 5, 240
-			Width 350		Height 45
-
-		Control StaticText
-			Title "Change site map extent to:"
-			Position 10,255
-'			Width 100
-		Control PopupMenu
-			Title "Center of MBR;Full Extent;Don't Change"
-			Position 110,253		ID CTRL_LST_ZOOM_TYPE_1
-			Calling Handler_OnZoomType1Clicked
-			Value SMSDLGGetZoomType(1)
-			Width 65
-
-		Control StaticText
-			Title "Zoom width, km:"
-			Position 10,270		ID CTRL_LBL_ZOOM_WIDTH_1
-'			Width 58
-		Control EditText
-			Position 75,268		ID CTRL_TXT_ZOOM_WIDTH_1
-			Width 30
-			Value FormatNumber$(SMSDLGGetZoomWidth(1))
-
-		Control StaticText
-			Title "Current zoom:"
-			Position 115,270
-			Width 48
-		Control Checkbox
-			Position 165,270		ID CTRL_CHK_KEEP_CURRENT_ZOOM_1
-			Value SMSDLGKeepCurrentZoom(1)
-			Calling Handler_UseSpecificZoom1Clicked
-
-		Control StaticText
-			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the center of the MBR, full extent"
-					+ " (for polygons, polylines and multiple records) or don't change at all."
-			Position 185,245
-			Width 160		Height 40
-
-		'****************************************************************
-		Control GroupBox
-			Title "Sites Layer - Seconday Map"
-			Position 360,135
-			Width 350		Height 100
-
-		Control StaticText
-			Position 366,148
-			'Width 35
-			Title "Site Layer:"
-		Control PopupMenu
-			Position 430,145			ID CTRL_LST_SITE2_TABLE_NAMES
-			width 100
-			Calling Handler_Site2LayersClicked
-
-		Control StaticText
-			Position 366,163
-			'Width 35
-			Title "Site ID Column:"
-		Control PopupMenu
-			Position 430,160			ID CTRL_LST_SITE2_ID_COLS
-			width 100
-			Calling Handler_Site2ColumnsClicked
-
-		Control StaticText
-			Position 366,180
-			Width 148
-			Title "Add each site as new query layer in mapper:"
-		Control Checkbox
-			Position 525,180			ID CTRL_CHK_SITE2_ADD_LAYER
-			Value SMSDLGAddSiteAsLayer(2)
-			Calling Handler_Site2AddLayerClicked
-
-		Control StaticText
-			Position 366,190			ID CTRL_LBL_SITE2_USE_LAYER_STYLES
-			Width 148 Height 26
-			Title "Use the style override and label properties of parent site layer (selected above) for the new child site layer:"
-			Disable
-		Control Checkbox
-			Position 525,198			ID CTRL_CHK_SITE2_USE_LAYER_STYLES
-			Value SMSDLGStyleOverideSiteLayer(2)
-			Disable
-
-		Control StaticText
-			Position 366, 218			ID CTRL_LBL_SITE2_OVERRIDE_LAYER
-			Width 148 Height 17
-			Title "Turn off the parent layer (selected above):"
-			Disable
-		Control Checkbox
-			Position 525,218			ID CTRL_CHK_SITE2_OVERRIDE_LAYER
-			Value SMSDLGTurnOffSiteLayer(2)
-			Disable
-
-		Control StaticText
-			Title "Select the 'parent' site layer (from the 'Secondary Map' Frame specified above). This can be the same layer"
-					+ " as in the 'Primary Map' but it can also be a different layer. The values in the Site ID column of this"
-					+ " layer must be the same as in the primary site layer as they are used to filter out the 'child' records."
-					+ " The other settings are similar to the settings for the 'Primary Map'."
-			Position 540,140
-			Width 160  Height 95
-
-		'****************************************************************
-		Control GroupBox ' Pan and Zoom controls Primary Map
-			Title "Map Pan and Zoom Settings - Secondary Map"
-			Position 360,240
-			Width 350		Height 45
-
-		Control StaticText
-			Title "Change site map extent to:"
-			Position 365,255
-'			Width 100
-		Control PopupMenu
-			Title "Center of MBR;Full Extent;Don't Change"
-			Position 465,253		ID CTRL_LST_ZOOM_TYPE_2
-			Calling Handler_OnZoomType2Clicked
-			Value SMSDLGGetZoomType(2)
-			Width 65
-
-		Control StaticText
-			Title "Zoom width, km:"
-			Position 365,270		ID CTRL_LBL_ZOOM_WIDTH_2
-'			Width 58
-		Control EditText
-			Position 430,268		ID CTRL_TXT_ZOOM_WIDTH_2
-			Width 30
-			Value FormatNumber$(SMSDLGGetZoomWidth(2))
-
-		Control StaticText
-			Title "Current zoom:"
-			Position 470,270
-			Width 48
-		Control Checkbox
-			Position 520,270		ID CTRL_CHK_KEEP_CURRENT_ZOOM_2
-			Value SMSDLGKeepCurrentZoom(2)
-			Calling Handler_UseSpecificZoom2Clicked
-
-		Control StaticText
-			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the center of the MBR, full extent"
-					+ " (for polygons, polylines and multiple records) or don't change at all."
-			Position 540,245
-			Width 160		Height 40
-
-		'****************************************************************
 		Control Groupbox 'Output Settings
 			Title "Output Settings"
 			Position 360,5
@@ -543,8 +342,222 @@ SMSDLG_SiteMapperSetup = FALSE
 			Width 160  Height 80
 
 		'****************************************************************
+		Control GroupBox
+			Title "Sites Layer - Primary Map"
+			Position 5,135
+			Width 350		Height 110
+
+		Control StaticText
+			Position 11,148
+			'Width 35
+			Title "Site Layer:"
+		Control PopupMenu
+			Position 75,145			ID CTRL_LST_SITE1_TABLE_NAMES
+			width 100
+			Calling Handler_Site1LayersClicked
+
+		Control StaticText
+			Position 11,163
+			'Width 35
+			Title "Site ID Column:"
+		Control PopupMenu
+			Position 75,160			ID CTRL_LST_SITE1_ID_COLS
+			width 100
+			Calling Handler_Site1ColumnsClicked
+
+		Control StaticText
+			Position 11,180
+			Width 155
+			Title "Check for non-unique values in Site ID column:"
 		Control Checkbox
-			Position 6,290		ID CTRL_CHK_CLONE_MAIN_WINDOW
+			Position 170,180			ID CTRL_LST_SITE1_UNIQUE_VALUES
+			Value SMSDLGCheckForNonUniqueValues()
+
+		Control StaticText
+			Position 11,190
+			Width 148
+			Title "Add each site as new query layer in mapper:"
+		Control Checkbox
+			Position 170,190			ID CTRL_CHK_SITE1_ADD_LAYER
+			Value SMSDLGAddSiteAsLayer(1)
+			Calling Handler_Site1AddLayerClicked
+
+		Control StaticText
+			Position 11,200			ID CTRL_LBL_SITE1_USE_LAYER_STYLES
+			Width 148 Height 26
+			Title "Use the style override and label properties of parent site layer (selected above) for the new child site layer:"
+			Disable
+		Control Checkbox
+			Position 170,208			ID CTRL_CHK_SITE1_USE_LAYER_STYLES
+			Value SMSDLGStyleOverideSiteLayer(1)
+			Disable
+
+		Control StaticText
+			Position 11, 228			ID CTRL_LBL_SITE1_OVERRIDE_LAYER
+			Width 148 Height 17
+			Title "Turn off the parent layer (selected above):"
+			Disable
+		Control Checkbox
+			Position 170,228			ID CTRL_CHK_SITE1_OVERRIDE_LAYER
+			Value SMSDLGTurnOffSiteLayer(1)
+			Disable
+
+		Control StaticText
+			Title "Select the 'parent' site layer (from the Mapper or Layout specified above) which includes the 'child' records"
+					+ " which will be used to generate each new map. The tool can validate that the values in the Site ID column"
+					+ " are unique if you expect them to be. Set the option to add each 'child' site as a layer in each new map."
+					+ " The 'child' site layer will be added at the same  position in the layer order as the 'parent' layer."
+					+ " Set the option to replicate the style override symbology and label properties for"
+					+ " the 'child' layer as the 'parent' layer."
+			Position 185,140
+			Width 160  Height 95
+
+		'****************************************************************
+		Control GroupBox ' Pan and Zoom controls Primary Map
+			Title "Map Pan and Zoom Settings - Primary Map"
+			Position 5, 250
+			Width 350		Height 45
+
+		Control StaticText
+			Title "Change site map extent to:"
+			Position 10,265
+'			Width 100
+		Control PopupMenu
+			Title "Center of MBR;Full Extent;Don't Change"
+			Position 110,263		ID CTRL_LST_ZOOM_TYPE_1
+			Calling Handler_OnZoomType1Clicked
+			Value SMSDLGGetZoomType(1)
+			Width 65
+
+		Control StaticText
+			Title "Zoom width, km:"
+			Position 10,280		ID CTRL_LBL_ZOOM_WIDTH_1
+'			Width 58
+		Control EditText
+			Position 75,278		ID CTRL_TXT_ZOOM_WIDTH_1
+			Width 30
+			Value FormatNumber$(SMSDLGGetZoomWidth(1))
+
+		Control StaticText
+			Title "Current zoom:"
+			Position 115,280
+			Width 48
+		Control Checkbox
+			Position 165,280		ID CTRL_CHK_KEEP_CURRENT_ZOOM_1
+			Value SMSDLGKeepCurrentZoom(1)
+			Calling Handler_UseSpecificZoom1Clicked
+
+		Control StaticText
+			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the center of the MBR, full extent"
+					+ " (for polygons, polylines and multiple records) or don't change at all."
+			Position 185,255
+			Width 160		Height 40
+
+		'****************************************************************
+		Control GroupBox
+			Title "Sites Layer - Seconday Map"
+			Position 360,135
+			Width 350		Height 110
+
+		Control StaticText
+			Position 366,148
+			'Width 35
+			Title "Site Layer:"
+		Control PopupMenu
+			Position 430,145			ID CTRL_LST_SITE2_TABLE_NAMES
+			width 100
+			Calling Handler_Site2LayersClicked
+
+		Control StaticText
+			Position 366,163
+			'Width 35
+			Title "Site ID Column:"
+		Control PopupMenu
+			Position 430,160			ID CTRL_LST_SITE2_ID_COLS
+			width 100
+			Calling Handler_Site2ColumnsClicked
+
+		Control StaticText
+			Position 366,180
+			Width 148
+			Title "Add each site as new query layer in mapper:"
+		Control Checkbox
+			Position 525,180			ID CTRL_CHK_SITE2_ADD_LAYER
+			Value SMSDLGAddSiteAsLayer(2)
+			Calling Handler_Site2AddLayerClicked
+
+		Control StaticText
+			Position 366,190			ID CTRL_LBL_SITE2_USE_LAYER_STYLES
+			Width 148 Height 26
+			Title "Use the style override and label properties of parent site layer (selected above) for the new child site layer:"
+			Disable
+		Control Checkbox
+			Position 525,198			ID CTRL_CHK_SITE2_USE_LAYER_STYLES
+			Value SMSDLGStyleOverideSiteLayer(2)
+			Disable
+
+		Control StaticText
+			Position 366, 218			ID CTRL_LBL_SITE2_OVERRIDE_LAYER
+			Width 148 Height 17
+			Title "Turn off the parent layer (selected above):"
+			Disable
+		Control Checkbox
+			Position 525,218			ID CTRL_CHK_SITE2_OVERRIDE_LAYER
+			Value SMSDLGTurnOffSiteLayer(2)
+			Disable
+
+		Control StaticText
+			Title "Select the 'parent' site layer (from the 'Secondary Map' Frame specified above). This can be the same layer"
+					+ " as in the 'Primary Map' but it can also be a different layer. The values in the Site ID column of this"
+					+ " layer must be the same as in the primary site layer as they are used to filter out the 'child' records."
+					+ " The other settings are similar to the settings for the 'Primary Map'."
+			Position 540,140
+			Width 160  Height 95
+
+		'****************************************************************
+		Control GroupBox ' Pan and Zoom controls Primary Map
+			Title "Map Pan and Zoom Settings - Secondary Map"
+			Position 360,250
+			Width 350		Height 45
+
+		Control StaticText
+			Title "Change site map extent to:"
+			Position 365,265
+'			Width 100
+		Control PopupMenu
+			Title "Center of MBR;Full Extent;Don't Change"
+			Position 465,263		ID CTRL_LST_ZOOM_TYPE_2
+			Calling Handler_OnZoomType2Clicked
+			Value SMSDLGGetZoomType(2)
+			Width 65
+
+		Control StaticText
+			Title "Zoom width, km:"
+			Position 365,280		ID CTRL_LBL_ZOOM_WIDTH_2
+'			Width 58
+		Control EditText
+			Position 430,278		ID CTRL_TXT_ZOOM_WIDTH_2
+			Width 30
+			Value FormatNumber$(SMSDLGGetZoomWidth(2))
+
+		Control StaticText
+			Title "Current zoom:"
+			Position 470,280
+			Width 48
+		Control Checkbox
+			Position 520,280		ID CTRL_CHK_KEEP_CURRENT_ZOOM_2
+			Value SMSDLGKeepCurrentZoom(2)
+			Calling Handler_UseSpecificZoom2Clicked
+
+		Control StaticText
+			Title "Specify how you want to change the map extent relative to each 'child' site. Pan map to the center of the MBR, full extent"
+					+ " (for polygons, polylines and multiple records) or don't change at all."
+			Position 540,255
+			Width 160		Height 40
+
+		'****************************************************************
+		Control Checkbox
+			Position 6,300		ID CTRL_CHK_CLONE_MAIN_WINDOW
 			Title "Clone main window for each 'child' site and keep these cloned windows open. Not recommended for many sites."
 			Value SMSDLGCreateCopiesOfMainWindow()
 
@@ -557,7 +570,7 @@ SMSDLG_SiteMapperSetup = FALSE
 				+ " return an empty string until Site Mapper starts processing the output. For a record with 'New York'"
 				+ " in column 'City', the text 'City: $mb{SMGetSiteValue(""City"", 1, 0)}' would show as 'City: New York'"
 				+ " Make sure the text frame is large enough to accommodate the full text from the Site table."
-			Position 5, 305		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT
+			Position 5, 315		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT
 			Width 700 height 35
 
 		Control StaticText
@@ -568,49 +581,49 @@ SMSDLG_SiteMapperSetup = FALSE
 				+ "updated to 'State of New York Map' if column 5 contains the value 'New York'. Note the text frame name "
 				+ "is modified by right clicking on the frame and selecting Frame Properties. Make sure the empty text "
 				+ "frame is large enough to accommodate the full text."
-			Position 5, 345		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT2
+			Position 5, 355		ID CTRL_LBL_ADD_VALUES_TO_LAYOUT2
 			Width 700 height 35
 			ID	56
 
 		Control StaticText
 			Title "Add delay before next 'child' site:"
-			Position 170,383		ID CTRL_LBL_DELAY_ON_NEXTSITE
+			Position 170,393		ID CTRL_LBL_DELAY_ON_NEXTSITE
 '			Hide
 		Control PopupMenu
 			Title "None;1 sec;2 secs;3 secs"
-			Position 290,381		ID CTRL_LST_DELAY_ON_NEXTSITE
+			Position 290,391		ID CTRL_LST_DELAY_ON_NEXTSITE
 			Width 40
 			Value SMSDLGGetDelayNextSiteItem()
 '			Hide
 		Control Button
 			Title "?"
-			Position 332,380
+			Position 332,390
 			Width 15		'Height 13
 			calling Handler_ShowDelayNextSiteDlg
 '			Hide
 
 		Control StaticText
 			Title "Add delay before printing:"
-			Position 360,383		ID CTRL_LBL_DELAY_ON_PRINT
+			Position 360,393		ID CTRL_LBL_DELAY_ON_PRINT
 		Control PopupMenu
 			Title "None;1 sec;2 secs;3 secs"
-			Position 460,381		ID CTRL_LST_DELAY_ON_PRINT
+			Position 460,391		ID CTRL_LST_DELAY_ON_PRINT
 			Width 40
 			Value SMSDLGGetDelayPrintItem()
 		Control Button
 			Title "?"
-			Position 502,380
+			Position 502,390
 			Width 15
 			calling Handler_ShowDelayPrintDlg
 
 		' Buttons
 		Control OKButton
-			Position 575,381		ID CTRL_CMD_OK
+			Position 575,391		ID CTRL_CMD_OK
 			calling Handler_OKClicked
 			Width 60
 		Control CancelButton
 			Title "Close"
-			Position 640,381
+			Position 640,391
 			Width 60
 			calling Handler_DialogCancelClicked
 
@@ -751,16 +764,8 @@ OnError GoTo ErrorOccured
 
 	'******* TEMPLATE WINDOW AND MAP WINDOWS ***************************************************
 	' Read Control for Window Type
-	mnWindowType = ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT)
-
-'	'Read Control Value for Map or Layout Export
-'	If mnWindowType = 1 then ' export Mapper ...
-'		mbExportMapWindow = True
-'	Else ' export Layout ...
-'		mbExportMapWindow = False
-'	End if
-
-	mnSelectedWindowItem = ReadControlValue(CTRL_LST_WINDOW_NAMES)
+	mnWindowType			= ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT)
+	mnSelectedWindowItem	= ReadControlValue(CTRL_LST_WINDOW_NAMES)
 
 	mnSelectedMainWID	 	= 0
 	marrSelectedMapperWID(1) = 0
@@ -773,6 +778,11 @@ OnError GoTo ErrorOccured
 	Else  'if Layout selected, get layout win title
 		mnSelectedMainWID 		= aintLayoutIDs(mnSelectedWindowItem)
 
+		If ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY) <= 1 Then
+			Note "Please select a frame with the main map window from the layout!"
+			Dialog Preserve
+			Exit Sub
+		End If
 		marrSelectedMapperWID(1) = marrFrameMapIDs1(ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY))
 		marrSelectedMapperWID(2) = marrFrameMapIDs2(ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY))
 	End If
@@ -781,12 +791,30 @@ OnError GoTo ErrorOccured
 	' Read control for Site Table
 	marrSiteTab(1)				= ""
 	marrColumnSiteID(1)			= ""
+	If ReadControlValue(CTRL_LST_SITE1_TABLE_NAMES) <= 1 Then
+		Note "Please select a Site Layer for the main map window!"
+		Dialog Preserve
+		Exit Sub
+	End If
+	If ReadControlValue(CTRL_LST_SITE1_ID_COLS) <= 1 Then
+		Note "Please select a Site ID Column for the main map window!"
+		Dialog Preserve
+		Exit Sub
+	End If
 	marrSiteTab(1)				= marrSite1TableNames(ReadControlValue(CTRL_LST_SITE1_TABLE_NAMES))
 	marrColumnSiteID(1)			= marrSite1ColNames(ReadControlValue(CTRL_LST_SITE1_ID_COLS))
+	mbCheckForNonUniqueValues	= ReadControlValue(CTRL_LST_SITE1_UNIQUE_VALUES)
+
+	If mbCheckForNonUniqueValues then
+		If not Handler_SiteColumnOnlyUniqueValues(marrSiteTab(1), marrColumnSiteID(1)) then
+			Dialog Preserve
+			Exit Sub
+		End If
+	End If
 
 	marrSiteTab(2)				= ""
 	marrColumnSiteID(2)			= ""
-	If ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY) > 2 And ReadControlValue(CTRL_LST_SITE2_TABLE_NAMES) > 1 Then
+	If ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY) > 1 And ReadControlValue(CTRL_LST_SITE2_TABLE_NAMES) > 1 Then
 		marrSiteTab(2)			= marrSite2TableNames(ReadControlValue(CTRL_LST_SITE2_TABLE_NAMES))
 		marrColumnSiteID(2)		= marrSite2ColNames(ReadControlValue(CTRL_LST_SITE2_ID_COLS))
 	End If
@@ -845,7 +873,7 @@ End Sub
 '*******************************************************************************
 Sub Handler_LayoutMap2Clicked
 
-	If ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY) In (1, 2) then
+	If ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY) =1 Then
 		'Disable secondary map controls
 		Alter Control CTRL_CHK_KEEP_CURRENT_ZOOM_2	Disable
 		Alter Control CTRL_LST_ZOOM_TYPE_2			Disable
@@ -1369,6 +1397,70 @@ Sub Handler_Site2ColumnsClicked
 
 End Sub
 
+'*******************************************************************************
+'Check SITE ID column for non-unique values
+'*******************************************************************************
+Function Handler_SiteColumnOnlyUniqueValues(	  ByVal sTab As String
+									, ByVal sCol As String
+									) As Logical
+
+Dim	aCol As Alias,
+	nRows As Integer,
+	sSiteIDs As String
+
+Handler_SiteColumnOnlyUniqueValues = FALSE
+
+	aCol = sTab & "." & sCol
+
+	Select aCol "SITE_ID", Count(*) "NUMRECORDS"
+		From sTab
+		Group By aCol
+		Into __COUNT__SITEIDS NoSelect Hide
+
+	If TableInfo(__COUNT__SITEIDS, TAB_INFO_NROWS) > 0 Then
+		Select *
+			From __COUNT__SITEIDS
+			Where NUMRECORDS > 1
+			Order By SITE_ID
+			Into __NONUNIQUE__SITEIDS NoSelect Hide
+		nRows	= TableInfo(__NONUNIQUE__SITEIDS, TAB_INFO_NROWS)
+
+		If nRows > 0 Then
+			Fetch First from __NONUNIQUE__SITEIDS
+			Do Until EOT(__NONUNIQUE__SITEIDS)
+				If sSiteIDs = "" Then
+					sSiteIDs = "'" & __NONUNIQUE__SITEIDS.SITE_ID & "'"
+				Else
+					sSiteIDs = sSiteIDs & ", '" & __NONUNIQUE__SITEIDS.SITE_ID & "'"
+				End If
+
+				If __NONUNIQUE__SITEIDS.ROWID >= 5 Then
+					Exit Do
+				End If
+				Fetch Next from __NONUNIQUE__SITEIDS
+			Loop
+
+			If nRows = 1 Then
+				Note "Site ID Column '" & sCol & "' in Site Table '" & sTab
+					& "' holds " & FormatNumber$(nRows) & " non-unique value, ( " & sSiteIDs & " )"
+			ElseIf nRows < 6 Then
+				Note "Site ID Column '" & sCol & "' in Site Table '" & sTab
+					& "' holds " & FormatNumber$(nRows) & " non-unique values, ( " & sSiteIDs & " )"
+			Else
+				Note "Site ID Column '" & sCol & "' in Site Table '" & sTab
+					& "' holds " & FormatNumber$(nRows) & " non-unique values, ( " & sSiteIDs & ", ... )"
+			End If
+		Else
+			Handler_SiteColumnOnlyUniqueValues = TRUE
+		End If
+		Close Table __NONUNIQUE__SITEIDS
+	Else
+		Handler_SiteColumnOnlyUniqueValues = TRUE
+	End If
+	Close Table __COUNT__SITEIDS
+
+End Function
+
 '**********************************************************************
 Function SMSDLGExportWindowType() As Integer		'1 = Map Window; 2 = Layout Window
 	If mnWindowType = 0 Then
@@ -1551,6 +1643,12 @@ Function SMSDLGGetSiteColumn(ByVal nLevel As Integer, ByVal sColumnType As Strin
 				SMSDLGGetSiteColumn = marrColumnSiteID(2)
 		End Case
 	End If
+End Function
+'**********************************************************************
+Function SMSDLGCheckForNonUniqueValues() As Logical
+
+	SMSDLGCheckForNonUniqueValues	= mbCheckForNonUniqueValues
+
 End Function
 
 '**********************************************************************
@@ -1739,6 +1837,9 @@ OnError GoTo ErrorOccured
 
 		Call CONFIGWriteKey(sFile, "SITETABLE" & nLevel, "NAME", SMSDLGGetSiteTab(nLevel))
 		Call CONFIGWriteKey(sFile, "SITETABLE" & nLevel, "SITEIDCOLUMN", SMSDLGGetSiteColumn(nLevel, "SITEID"))
+		If nLevel = 1 Then
+			Call CONFIGWriteKey(sFile, "SITETABLE" & nLevel, "UNIQUEVALUES", IIf(SMSDLGCheckForNonUniqueValues(), 1, 0))
+		End If
 
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "ADDLAYER", IIf(SMSDLGAddSiteAsLayer(nLevel), 1, 0))
 		Call CONFIGWriteKey(sFile, "MAPOPTIONS" & nLevel, "OVERRIDE", IIf(SMSDLGStyleOverideSiteLayer(nLevel), 1, 0))
@@ -1797,6 +1898,9 @@ OnError GoTo ErrorOccured
 
 		marrSiteTab(nLevel)			= CONFIGReadKey(sFile, "SITETABLE" & nLevel, "NAME")
 		marrColumnSiteID(nLevel)		= CONFIGReadKey(sFile, "SITETABLE" & nLevel, "SITEIDCOLUMN")
+		If nLevel = 1 Then
+			mbCheckForNonUniqueValues	= (CONFIGReadKey(sFile, "SITETABLE" & nLevel, "UNIQUEVALUES") = "1")
+		End If
 
 		marrAddSiteAsLayer(nLevel)		= (CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "ADDLAYER") = "1")
 		marrStyleOverrideSiteLayer(nLevel)	= (CONFIGReadKey(sFile, "MAPOPTIONS" & nLevel, "OVERRIDE") = "1")

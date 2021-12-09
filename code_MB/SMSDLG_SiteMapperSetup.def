@@ -16,6 +16,7 @@ Declare Function SMSDLGNumberOfMaps() As Integer
 Declare Function SMSDLGGetSiteTab(ByVal nLevel As Integer) As String
 Declare Function SMSDLGGetSiteColumn(ByVal nLevel As Integer, ByVal sColumnType As String) As String
 Declare Function SMSDLGQuerySiteTab(ByVal nLevel As Integer) As Logical
+Declare Function SMSDLGCheckForNonUniqueValues() As Logical
 
 Declare Function SMSDLGGetOutputFolder() As String
 Declare Function SMSDLGExportToFormat(ByVal sType As String) As Logical	'"PNG, "JPG", "PDF"
