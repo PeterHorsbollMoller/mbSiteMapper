@@ -64,6 +64,12 @@
 '		- Added option to check that the Site ID column holds unique values
 '		- Added validation that a site table and site id column had been selected
 '		- Added validation that a frame with main map window has been selected
+' Updated Jan 2022, version 2.3.0
+'		- Renamed function MSFUNCGetTableColumnValues to MSFUNCGetTableRowValues with a given separator
+'		- Added new edition of MSFUNCGetTableColumnValues that returns all values in a single column with a given separator
+' Updated May 2022, version 2.3.1
+'		- Bugfix: multiple layout open crashes the tool
+'		- implemented error handling in module SMSDLG_SiteMapperSetup
 '*********************************************************
 
 include "MAPBASIC.DEF"
@@ -86,8 +92,8 @@ Include "SMPDLGSiteMapperPreferences.def"
 
 Define PATH_IMAGES		ApplicationDirectory$() & "_Icons\"
 Define xProgram 		"Site Mapper"
-Define xVersion 		"2.2.0"
-Define xYear			"2021"
+Define xVersion 		"2.3.1"
+Define xYear			"2022"
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "SiteMapper.ini"
 Define FILE_HELP		ApplicationDirectory$() & "SiteMapper.pdf"
@@ -151,16 +157,26 @@ Declare Function MSFUNCGetTableColumnValue(	  ByVal sTab As String
 									, ByVal bReturnError As Logical
 									) As String
 Declare Function MSFUNCGetTableColumnNames(	  ByVal sTab As String
+									, ByVal sSeparator As String		'Defaults to Chr$(10) if ""
+									, ByVal bReturnError As Logical
+									) As String
+Declare Function MSFUNCGetTableRowValues(	  ByVal sTab As String
+									, ByVal nRowID As Integer
+									, ByVal sSeparator As String		'Defaults to Chr$(10) if ""
 									, ByVal bReturnError As Logical
 									) As String
 Declare Function MSFUNCGetTableColumnValues(	  ByVal sTab As String
-									, ByVal nRowID As Integer
+									, ByVal sCol As String
+									, ByVal sSeparator As String		'Defaults to Chr$(10) if ""
 									, ByVal bReturnError As Logical
 									) As String
 Declare Function MSFUNCGetTableColumnNameValues(	  ByVal sTab As String
 										, ByVal nRowID As Integer
+										, ByVal sColumnSeparator As String		'Defaults to Chr$(10) if ""
+										, ByVal sRowSeparator As String		'Defaults to Chr$(9) if ""
 										, ByVal bReturnError As Logical
 										) As String
+
 
 Global msLogFile as string
 Dim	arrCurrentSiteTableName(2) As String
@@ -271,14 +287,14 @@ OnError GoTo ErrorOccured
 		Call RBNControlSetCustomMBXHandlerIdx(nCtrlIdx, "SMShowPrefDialog")
 	End If
 
-
 	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetSiteColumnValue", "SMGetSiteValue", "Returns the value from a specified column of the first record in the site table")
 	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetSiteColumnValueErr", "SMGetSiteValueErr", "Returns the value from a specified column of of the first record in the site table")
 	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetColumnValue", "SMGetColumnValue", "Returns the value from a specified column of a single record in the site table")
 	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetTableColumnValue", "SMGetTableColumnValue", "Returns the value from a specified column of a single record in a specific table")
-	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetTableColumnNames", "SMGetTableColumnNames", "Returns the Column Names from a specific table")
-	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetTableColumnValues", "SMGetTableValues", "Returns the values from a single record in a specific table")
-	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetTableColumnNameValues", "SMGetTableNameValues", "Returns the column names and values from a single record in a specific table")
+	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetTableColumnNames", "SMGetTableColumnNames", "Returns the Column Names from a specific table with a given separator")
+	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetTableRowValues", "SMGetTableRowValues", "Returns the values from a single record in a specific table with a given separator")
+	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetTableColumnValues", "SMGetTableColumnValues", "Returns all the values from a single column in a specific table with a given separator")
+	bResult	= RBNRegisterFunctionAsPublic("MSFUNCGetTableColumnNameValues", "SMGetTableNameValues", "Returns the column names and values from a single record in a specific table with a given separator")
 
 	Exit Sub
 '--------------------
@@ -1612,7 +1628,7 @@ MSFUNCGetTableColumnValue = ""
 	End Case
 
 	If bCloseTable Then
-		Close Table sTab
+		'Close Table sTab
 	End If
 	MSFUNCGetTableColumnValue = sValue
 
@@ -1631,6 +1647,7 @@ End Function
 '
 '**********************************************************************************************''
 Function MSFUNCGetTableColumnNames(  ByVal sTab As String
+							, ByVal sSeparator As String		'Defaults to Chr$(10) if ""
 							, ByVal bReturnError As Logical
 							) As String
 
@@ -1641,6 +1658,8 @@ Dim	sValues, sCol As String,
 OnError GoTo ErrorOccured
 
 MSFUNCGetTableColumnNames = ""
+
+	sSeparator 		= IIf(sSeparator = "", Chr$(10), sSeparator)
 
 	If sTab = "Selection" Then
 		If SelectionInfo(SEL_INFO_NROWS) > 0 Then
@@ -1666,12 +1685,12 @@ MSFUNCGetTableColumnNames = ""
 		If sValues = "" Then
 			sValues = sCol & ":"
 		Else
-			sValues = sValues & Chr$(10) & sCol & ":"
+			sValues = sValues & sSeparator & sCol & ":"
 		End If
 	Next
 
 	If bCloseTable Then
-		Close Table sTab
+		'Close Table sTab
 	End If
 	MSFUNCGetTableColumnNames = sValues
 
@@ -1689,8 +1708,100 @@ End Function
 'Return value:
 '
 '**********************************************************************************************''
-Function MSFUNCGetTableColumnValues(	  ByVal sTab As String
+Function MSFUNCGetTableColumnValues( ByVal sTab As String
+							, ByVal sCol As String
+							, ByVal sSeparator As String		'Defaults to Chr$(10) if ""
+							, ByVal bReturnError As Logical
+							) As String
+
+Dim	sValues, sValue As String,
+	aCol As Alias,
+	bCloseTable As Logical
+
+OnError GoTo ErrorOccured
+
+MSFUNCGetTableColumnValues = ""
+
+	sSeparator 		= IIf(sSeparator = "", Chr$(10), sSeparator)
+
+	If sTab = "Selection" Then
+		If SelectionInfo(SEL_INFO_NROWS) > 0 Then
+			sTab			= SelectionInfo(SEL_INFO_SELNAME)
+			bCloseTable	= TRUE
+		Else
+			If bReturnError Then
+				MSFUNCGetTableColumnValues = "Error: Selection holds no records"
+			End If
+			Exit Function
+		End If
+	End If
+
+	If NOT TABIsOpen(sTab) Then
+		If bReturnError Then
+			MSFUNCGetTableColumnValues = "Error: Table isn't open '" & sTab & "'"
+		End If
+		Exit Function
+	ElseIf NOT COLExists(sTab, sCol) Then
+		If bReturnError Then
+			MSFUNCGetTableColumnValues = "Error: Table '" & sTab & "' hasn't this column '" & sCol & "'"
+		End If
+		Exit Function
+	End If
+
+	aCol = sTab & "." & sCol
+	Fetch First from sTab
+	Do Until EOT(sTab)
+		Do Case ColumnInfo(sTab, sCol, COL_INFO_TYPE)
+			Case COL_TYPE_CHAR
+				sValue = aCol
+			Case COL_TYPE_INTEGER, COL_TYPE_SMALLINT, COL_TYPE_LOGICAL, COL_TYPE_LARGEINT
+				sValue = Str$(aCol)
+			Case COL_TYPE_FLOAT, COL_TYPE_DECIMAL
+				sValue = FormatNumber$(aCol)
+			Case COL_TYPE_DATE
+				If aCol Then
+					sValue = FormatDate$(aCol)
+				End If
+			Case COL_TYPE_TIME
+				If aCol Then
+					sValue = FormatTime$(acol, "HH:mm:ss")
+				End If
+			Case COL_TYPE_DATETIME
+				If aCol Then
+					sValue = FormatDate$(aCol) & " " & FormatTime$(GetTime(acol), "HH:mm:ss")
+				End If
+		End Case
+
+		If sValues = "" Then
+			sValues = sValue
+		Else
+			sValues = sValues & sSeparator & sValue
+		End If
+		Fetch Next From sTab
+	Loop
+
+	If bCloseTable Then
+		'Close Table sTab
+	End If
+	MSFUNCGetTableColumnValues = sValues
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Note Err() & " " & Error$() & " MSFUNCGetTableColumnValues: Table " & sTab & " RowID: " & nRowID
+
+End Function
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Pitney Bowes
+'Parameters:
+'	:
+'Return value:
+'
+'**********************************************************************************************''
+Function MSFUNCGetTableRowValues(	  ByVal sTab As String
 							, ByVal nRowID As Integer
+							, ByVal sSeparator As String		'Defaults to Chr$(10) if ""
 							, ByVal bReturnError As Logical
 							) As String
 
@@ -1700,7 +1811,9 @@ Dim	sValues, sCol As String,
 
 OnError GoTo ErrorOccured
 
-MSFUNCGetTableColumnValues = ""
+MSFUNCGetTableRowValues = ""
+
+	sSeparator 		= IIf(sSeparator = "", Chr$(10), sSeparator)
 
 	If sTab = "Selection" Then
 		If SelectionInfo(SEL_INFO_NROWS) > 0 Then
@@ -1708,19 +1821,19 @@ MSFUNCGetTableColumnValues = ""
 			bCloseTable	= TRUE
 		Else
 			If bReturnError Then
-				MSFUNCGetTableColumnValues = "Error: Selection holds no records"
+				MSFUNCGetTableRowValues = "Error: Selection holds no records"
 			End If
 			Exit Function
 		End If
 	End If
 	If NOT TABIsOpen(sTab) Then
 		If bReturnError Then
-			MSFUNCGetTableColumnValues = "Error: Table isn't open '" & sTab & "'"
+			MSFUNCGetTableRowValues = "Error: Table isn't open '" & sTab & "'"
 		End If
 		Exit Function
 	ElseIf nRowID > TableInfo(sTab, TAB_INFO_NROWS) Then
 		If bReturnError Then
-			MSFUNCGetTableColumnValues = "Error: RowID '" & FormatNumber$(nRowID) & "' is higher than number of records '" & FormatNumber$(TableInfo(sTab, TAB_INFO_NROWS)) & "'"
+			MSFUNCGetTableRowValues = "Error: RowID '" & FormatNumber$(nRowID) & "' is higher than number of records '" & FormatNumber$(TableInfo(sTab, TAB_INFO_NROWS)) & "'"
 		End If
 		Exit Function
 	End If
@@ -1729,7 +1842,7 @@ MSFUNCGetTableColumnValues = ""
 		Fetch Rec nRowID From sTab
 	ElseIf EOT(sTab) Then
 		If bReturnError Then
-			MSFUNCGetTableColumnValues = "The cursor of the table '" & sTab & "' is at EOT"
+			MSFUNCGetTableRowValues = "The cursor of the table '" & sTab & "' is at EOT"
 		End If
 		Exit Function
 	End If
@@ -1740,19 +1853,19 @@ MSFUNCGetTableColumnValues = ""
 		If sValues = "" Then
 			sValues = MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
 		Else
-			sValues = sValues & Chr$(10) & MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
+			sValues = sValues & sSeparator & MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
 		End If
 	Next
 
 	If bCloseTable Then
-		Close Table sTab
+		'Close Table sTab
 	End If
-	MSFUNCGetTableColumnValues = sValues
+	MSFUNCGetTableRowValues = sValues
 
 	Exit Function
 '-------------------------
 ErrorOccured:
-	Note Err() & " " & Error$() & " MSFUNCGetTableColumnValues: Table " & sTab & " RowID: " & nRowID
+	Note Err() & " " & Error$() & " MSFUNCGetTableRowValues: Table " & sTab & " RowID: " & nRowID
 
 End Function
 
@@ -1765,9 +1878,11 @@ End Function
 '
 '**********************************************************************************************''
 Function MSFUNCGetTableColumnNameValues(  ByVal sTab As String
-							, ByVal nRowID As Integer
-							, ByVal bReturnError As Logical
-							) As String
+								, ByVal nRowID As Integer
+								, ByVal sColumnSeparator As String		'Defaults to Chr$(10) if ""
+								, ByVal sRowSeparator As String		'Defaults to Chr$(9) if ""
+								, ByVal bReturnError As Logical
+								) As String
 
 Dim	sValues, sCol As String,
 	nCol As Integer,
@@ -1776,6 +1891,9 @@ Dim	sValues, sCol As String,
 OnError GoTo ErrorOccured
 
 MSFUNCGetTableColumnNameValues = ""
+
+	sRowSeparator 		= IIf(sRowSeparator = "", Chr$(9), sRowSeparator)
+	sColumnSeparator	= IIf(sColumnSeparator = "", Chr$(10), sColumnSeparator)
 
 	If sTab = "Selection" Then
 		If SelectionInfo(SEL_INFO_NROWS) > 0 Then
@@ -1813,14 +1931,14 @@ MSFUNCGetTableColumnNameValues = ""
 		sCol	= ColumnInfo(sTab, "COL" + nCol, COL_INFO_NAME)
 
 		If sValues = "" Then
-			sValues = sCol & ":" & Chr$(9) & MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
+			sValues = sCol & ":" & sRowSeparator & MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
 		Else
-			sValues = sValues & Chr$(10) & sCol & ":" & Chr$(9) & MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
+			sValues = sValues & sColumnSeparator & sCol & ":" & sRowSeparator & MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
 		End If
 	Next
 
 	If bCloseTable Then
-		Close Table sTab
+		'Close Table sTab
 	End If
 	MSFUNCGetTableColumnNameValues = sValues
 

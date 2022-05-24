@@ -2,13 +2,15 @@
 
 Include "Library\ARRAYLib.def"
 Include "Library\ConfigFileLib.def"
+Include "Library\DEBUGLib.def"
+Include "Library\ERRORLib.def"
 Include "Library\WINDOWLib.def"
 
 Include "SMSDLG_SiteMapperSetup.def"
 
 Define	CTRL_LBL_MAPPER_OR_LAYOUT		10
 Define	CTRL_LST_MAPPER_OR_LAYOUT		11
-Define	CTRL_LST_WINDOW_NAMES			12
+Define	CTRL_LST_TEMPLATE_WINDOWS		12
 Define	CTRL_CMD_OK					20
 Define	CTRL_LBL_LAYOUT_MAP_PRIMARY		101
 Define	CTRL_LST_LAYOUT_MAP_PRIMARY		102
@@ -74,6 +76,7 @@ Declare Sub Handler_GetLayersForMapFrame1
 Declare Sub Handler_GetLayersForMapFrame2
 Declare Sub Handler_FileNameTypeClicked
 Declare Sub Handler_WindowTypeClicked
+Declare Sub Handler_WindowTemplateClicked
 Declare Sub Handler_OnZoomType1Clicked
 Declare Sub Handler_OnZoomType2Clicked
 Declare Sub Handler_UseSpecificZoom1Clicked
@@ -100,8 +103,8 @@ Declare Method FILEBrowseForFolder
 		) As String
 
 
-Dim	astrMapperNames(), astrLayoutNames() As String ' map and layout names
-Dim	mnNumLayouts, mnNumMappers, mnNumMappersAll, aintMapperIDs(), aintLayoutIDs() as integer ' map and layout names
+Dim	marrMapperNames(), marrLayoutNames() As String ' map and layout names
+Dim	mnNumLayouts, mnNumMappers, mnNumMappersAll, marrMapperIDs(), marrLayoutIDs() As Integer ' map and layout names
 Dim	marrFrameMapNames1(), marrFrameMapNames2(), marrSite1TableNames(), marrSite2TableNames(), marrSite1ColNames(), marrSite1CharColNames(), marrSite2ColNames() As String
 Dim	marrFrameMapIDs1(), marrFrameMapIDs2() As Integer
 Dim	marrSite1ColNamesUnique() as string
@@ -128,10 +131,10 @@ OnError GoTo ErrorOccured
 
 SMSDLG_SiteMapperSetup = FALSE
 
-	ReDim astrMapperNames(0)
-	ReDim astrLayoutNames(0)
-	ReDim aintMapperIDs(0)
-	ReDim aintLayoutIDs(0)
+	ReDim marrMapperNames(0)
+	ReDim marrLayoutNames(0)
+	ReDim marrMapperIDs(0)
+	ReDim marrLayoutIDs(0)
 
 	mnNumLayouts 		= 0
 	mnNumMappers 		= 0
@@ -146,20 +149,20 @@ SMSDLG_SiteMapperSetup = FALSE
 			Case WIN_MAPPER
 				mnNumMappersAll = mnNumMappersAll + 1
 				If WindowInfo(nWin, WIN_INFO_PARENT_LAYOUT) = 0 Then
-					Call ARRAYAddValueString(astrMapperNames, WindowInfo(nWin, WIN_INFO_NAME))
-					Call ARRAYAddValueInteger(aintMapperIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
+					Call ARRAYAddValueString(marrMapperNames, WindowInfo(nWin, WIN_INFO_NAME))
+					Call ARRAYAddValueInteger(marrMapperIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
 				Else
 					'**Map window is embedded in a layout window
 				End If
 			Case WIN_LAYOUT_DESIGNER
-				Call ARRAYAddValueString(astrLayoutNames, WindowInfo(nWin, WIN_INFO_NAME))
-				Call ARRAYAddValueInteger(aintLayoutIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
+				Call ARRAYAddValueString(marrLayoutNames, WindowInfo(nWin, WIN_INFO_NAME))
+				Call ARRAYAddValueInteger(marrLayoutIDs, WindowInfo(nWin, WIN_INFO_WINDOWID))
 
 		End Case
 	Next
 
-	mnNumMappers	= Ubound(astrMapperNames)
-	mnNumLayouts	= Ubound(astrLayoutNames)
+	mnNumMappers	= Ubound(marrMapperNames)
+	mnNumLayouts	= Ubound(marrLayoutNames)
 
 	If mnNumMappersAll = 0 then
 		Note "You must have at least one Map Window or one Layout Window with an embedded Map Window open to use this tool"
@@ -193,10 +196,10 @@ SMSDLG_SiteMapperSetup = FALSE
 		'	Width 160
 		Control PopupMenu ' mapper or layout list
 			Title ""
-			Position 15,41			ID CTRL_LST_WINDOW_NAMES
+			Position 15,41			ID CTRL_LST_TEMPLATE_WINDOWS
 			Width 160
 			Value mnSelectedWindowItem
-			Calling Handler_GetLayersForMapper
+			Calling Handler_WindowTemplateClicked
 
 		Control StaticText
 			Title "Select the Mapper or Layout window which will be used as a template for the individual 'site' maps."
@@ -632,9 +635,10 @@ SMSDLG_SiteMapperSetup = FALSE
 	End If
 
 	Exit Function
-'--------------------
+'-------------------------
 ErrorOccured:
-	Note Err() & " " & Error$() & " SMSDLG_SiteMapperSetup()"
+	Call ERRCreate(Err(), Error$(), "SMSDLG_SiteMapperSetup")
+	Call ERRShow()
 
 End Function
 
@@ -676,9 +680,10 @@ OnError GoTo ErrorOccured
 	Call Handler_FileNameTypeClicked
 
 	Exit Sub
-'--------------------
+'-------------------------
 ErrorOccured:
-	Note Err() & " " & Error$() & " Handler_OnDialogLoad"
+	Call ERRCreate(Err(), Error$(), "Handler_OnDialogLoad")
+	Call ERRShow()
 
 End Sub
 
@@ -765,7 +770,7 @@ OnError GoTo ErrorOccured
 	'******* TEMPLATE WINDOW AND MAP WINDOWS ***************************************************
 	' Read Control for Window Type
 	mnWindowType			= ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT)
-	mnSelectedWindowItem	= ReadControlValue(CTRL_LST_WINDOW_NAMES)
+	mnSelectedWindowItem	= ReadControlValue(CTRL_LST_TEMPLATE_WINDOWS)
 
 	mnSelectedMainWID	 	= 0
 	marrSelectedMapperWID(1) = 0
@@ -773,10 +778,10 @@ OnError GoTo ErrorOccured
 
 	'Read Control Values for which Map and Layout to use
 	If SMSDLGExportMapWindow() then 	'if Mapper selected, get Mapper Window ID
-		mnSelectedMainWID		= aintMapperIDs(mnSelectedWindowItem)
-		marrSelectedMapperWID(1) = aintMapperIDs(mnSelectedWindowItem)
+		mnSelectedMainWID		= marrMapperIDs(mnSelectedWindowItem)
+		marrSelectedMapperWID(1) = marrMapperIDs(mnSelectedWindowItem)
 	Else  'if Layout selected, get layout win title
-		mnSelectedMainWID 		= aintLayoutIDs(mnSelectedWindowItem)
+		mnSelectedMainWID 		= marrLayoutIDs(mnSelectedWindowItem)
 
 		If ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY) <= 1 Then
 			Note "Please select a frame with the main map window from the layout!"
@@ -845,9 +850,10 @@ OnError GoTo ErrorOccured
 	marrKeepZoom(2)			= ReadControlValue(CTRL_CHK_KEEP_CURRENT_ZOOM_2)
 
 	Exit Sub
-'--------------------
+'-------------------------
 ErrorOccured:
-	Note Err() & " " & Error$() & " Handler_OKClicked"
+	Call ERRCreate(Err(), Error$(), "Handler_OKClicked")
+	Call ERRShow()
 
 End Sub
 
@@ -856,6 +862,13 @@ End Sub
 '*******************************************************************************
 Sub Handler_DialogCancelClicked
 
+OnError GoTo ErrorOccured
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_DialogCancelClicked")
+	Call ERRShow()
 
 End Sub
 
@@ -866,12 +879,20 @@ Sub Handler_LayoutMap1Clicked
 
 	Call Handler_GetLayersForMapFrame1
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_LayoutMap1Clicked")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_LayoutMap2Clicked
 '*******************************************************************************
 Sub Handler_LayoutMap2Clicked
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY) =1 Then
 		'Disable secondary map controls
@@ -896,12 +917,20 @@ Sub Handler_LayoutMap2Clicked
 		Call Handler_GetLayersForMapFrame2
 	End If
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_LayoutMap2Clicked")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_OnZoomType1Clicked
 '*******************************************************************************
 Sub Handler_OnZoomType1Clicked
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_LST_ZOOM_TYPE_1) = 1 then
 		alter Control CTRL_LBL_ZOOM_WIDTH_1 Enable
@@ -914,12 +943,20 @@ Sub Handler_OnZoomType1Clicked
 	End If
 	Call Handler_UseSpecificZoom1Clicked
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_OnZoomType1Clicked")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_OnZoomType2Clicked
 '*******************************************************************************
 Sub Handler_OnZoomType2Clicked
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_LST_ZOOM_TYPE_2) = 1 then
 		alter Control CTRL_LBL_ZOOM_WIDTH_2 Enable
@@ -932,12 +969,20 @@ Sub Handler_OnZoomType2Clicked
 	End If
 	Call Handler_UseSpecificZoom2Clicked
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_OnZoomType2Clicked")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_Site1AddLayerClicked
 '*******************************************************************************
 Sub Handler_Site1AddLayerClicked
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_CHK_SITE1_ADD_LAYER) then
 		alter Control CTRL_LBL_SITE1_USE_LAYER_STYLES enable
@@ -951,12 +996,20 @@ Sub Handler_Site1AddLayerClicked
 		alter Control CTRL_CHK_SITE1_OVERRIDE_LAYER Disable
 	End If
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_Site1AddLayerClicked")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_Site2AddLayerClicked
 '*******************************************************************************
 Sub Handler_Site2AddLayerClicked
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_CHK_SITE2_ADD_LAYER) then
 		alter Control CTRL_LBL_SITE2_USE_LAYER_STYLES enable
@@ -970,12 +1023,20 @@ Sub Handler_Site2AddLayerClicked
 		alter Control CTRL_CHK_SITE2_OVERRIDE_LAYER Disable
 	End If
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_Site2AddLayerClicked")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_ShowDelayNextSiteDlg
 '*******************************************************************************
 Sub Handler_ShowDelayNextSiteDlg
+
+OnError GoTo ErrorOccured
 
 	Dialog
 		Title "What's this"
@@ -992,12 +1053,20 @@ Sub Handler_ShowDelayNextSiteDlg
 		Control OKButton
 			Position 78, 70
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_ShowDelayNextSiteDlg")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_ShowDelayPrintDlg
 '*******************************************************************************
 Sub Handler_ShowDelayPrintDlg
+
+OnError GoTo ErrorOccured
 
 	Dialog
 		Title "What's this"
@@ -1015,6 +1084,12 @@ Sub Handler_ShowDelayPrintDlg
 		Control OKButton
 			Position 78, 70
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_ShowDelayPrintDlg")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
@@ -1023,6 +1098,8 @@ End Sub
 Sub Handler_BrowseFolderClicked
 
 Dim sFolder As String
+
+OnError GoTo ErrorOccured
 
 	sFolder = FILEBrowseForFolder("Output Folder", ReadControlValue(CTRL_TXT_OUTPUT_FOLDER))
 
@@ -1033,7 +1110,13 @@ Dim sFolder As String
 		End If
 	End If
 
-	alter control CTRL_TXT_OUTPUT_FOLDER value sFolder
+	Alter Control CTRL_TXT_OUTPUT_FOLDER Value sFolder
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_BrowseFolderClicked")
+	Call ERRShow()
 
 End Sub
 
@@ -1042,11 +1125,19 @@ End Sub
 '*******************************************************************************
 Sub Handler_UseSpecificZoom1Clicked
 
+OnError GoTo ErrorOccured
+
 	If ReadControlValue(CTRL_CHK_KEEP_CURRENT_ZOOM_1) Then
 		Alter Control CTRL_TXT_ZOOM_WIDTH_1 Disable
 	Else
 		Alter Control CTRL_TXT_ZOOM_WIDTH_1 Enable
 	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_UseSpecificZoom1Clicked")
+	Call ERRShow()
 
 End Sub
 
@@ -1055,11 +1146,19 @@ End Sub
 '*******************************************************************************
 Sub Handler_UseSpecificZoom2Clicked
 
+OnError GoTo ErrorOccured
+
 	If ReadControlValue(CTRL_CHK_KEEP_CURRENT_ZOOM_2) Then
 		Alter Control CTRL_TXT_ZOOM_WIDTH_2 Disable
 	Else
 		Alter Control CTRL_TXT_ZOOM_WIDTH_2 Enable
 	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_UseSpecificZoom2Clicked")
+	Call ERRShow()
 
 End Sub
 
@@ -1068,8 +1167,10 @@ End Sub
 '*******************************************************************************
 Sub Handler_WindowTypeClicked
 
+OnError GoTo ErrorOccured
+
 	If ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT) = 1 then ' Map
-		Alter Control CTRL_LST_WINDOW_NAMES title from variable astrMapperNames() ' update popup with Mapper names
+		Alter Control CTRL_LST_TEMPLATE_WINDOWS title from variable marrMapperNames() ' update popup with Mapper names
 
 		Alter Control CTRL_LBL_LAYOUT_MAP_PRIMARY Disable
 		Alter Control CTRL_LST_LAYOUT_MAP_PRIMARY Disable
@@ -1077,8 +1178,9 @@ Sub Handler_WindowTypeClicked
 		Alter Control CTRL_LST_LAYOUT_MAP_SECONDARY Disable
 
 		Call Handler_GetLayersForMapper
+
 	ElseIf ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT) = 2 then ' Layout
-		Alter Control CTRL_LST_WINDOW_NAMES title from variable astrLayoutNames() ' update popup with Layout names
+		Alter Control CTRL_LST_TEMPLATE_WINDOWS title from variable marrLayoutNames() ' update popup with Layout names
 
 		Alter Control CTRL_LBL_LAYOUT_MAP_PRIMARY Enable
 		Alter Control CTRL_LST_LAYOUT_MAP_PRIMARY Enable
@@ -1087,6 +1189,37 @@ Sub Handler_WindowTypeClicked
 
 		Call Handler_GetMapFramesForLayout
 	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_WindowTypeClicked")
+	Call ERRShow()
+
+End Sub
+
+'**********************************************************************************************''
+'Created by Peter Horsbøll Møller, Precisely
+'Parameters:
+'
+'**********************************************************************************************''
+Sub Handler_WindowTemplateClicked
+
+OnError GoTo ErrorOccured
+
+	If ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT) = 1 then ' Map
+		Call Handler_GetLayersForMapper
+
+	ElseIf ReadControlValue(CTRL_LST_MAPPER_OR_LAYOUT) = 2 then ' Layout
+		Call Handler_GetMapFramesForLayout
+
+	End If
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_WindowTemplateClicked")
+	Call ERRShow()
 
 End Sub
 
@@ -1097,11 +1230,13 @@ Sub Handler_GetLayersForMapper
 
 Dim 	j, nLayer, nNumLayers, nWID as integer
 
-	If ReadControlValue(CTRL_LST_WINDOW_NAMES) = 0 then
+OnError GoTo ErrorOccured
+
+	If ReadControlValue(CTRL_LST_TEMPLATE_WINDOWS) = 0 then
 		Exit Sub
 	End If
 
-	nWID = aintMapperIDs(ReadControlValue(CTRL_LST_WINDOW_NAMES)) ' selected Mapper Window ID
+	nWID = marrMapperIDs(ReadControlValue(CTRL_LST_TEMPLATE_WINDOWS)) ' selected Mapper Window ID
 	If nWID = 0 then
 		Exit Sub
 	End If
@@ -1119,6 +1254,12 @@ Dim 	j, nLayer, nNumLayers, nWID as integer
 	' update popup menu	with list of layers in Mapper
 	Alter Control CTRL_LST_SITE1_TABLE_NAMES Title from variable marrSite1TableNames()
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_GetLayersForMapper")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
@@ -1128,11 +1269,13 @@ Sub Handler_GetMapFramesForLayout
 
 dim	k, j, nNumFrames, nNumLayers, nMID, nWID, intCountMapperFrames as integer
 
-	If ReadControlValue(CTRL_LST_WINDOW_NAMES) = 0 then
+OnError GoTo ErrorOccured
+
+	If ReadControlValue(CTRL_LST_TEMPLATE_WINDOWS) = 0 then
 		Exit Sub
 	End If
 
-	nWID			= aintLayoutIDs(ReadControlValue(CTRL_LST_WINDOW_NAMES))
+	nWID			= marrLayoutIDs(ReadControlValue(CTRL_LST_TEMPLATE_WINDOWS))
 	nNumFrames	= LayoutInfo(nWID,LAYOUT_INFO_NUM_ITEMS)
 
 	Redim marrFrameMapNames1(0)
@@ -1174,6 +1317,12 @@ dim	k, j, nNumFrames, nNumLayers, nMID, nWID, intCountMapperFrames as integer
 		Alter Control CTRL_LST_LAYOUT_MAP_SECONDARY Disable
 	End If
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_GetMapFramesForLayout")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
@@ -1182,6 +1331,8 @@ End Sub
 Sub Handler_GetLayersForMapFrame1
 
 dim 	j, nLayer, nNumLayers, nMID, intCountLayers as integer
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_LST_LAYOUT_MAP_PRIMARY) = 0 Then
 		Exit Sub
@@ -1213,6 +1364,12 @@ dim 	j, nLayer, nNumLayers, nMID, intCountLayers as integer
 		Exit Sub
 	End If
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_GetLayersForMapFrame1")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
@@ -1221,6 +1378,8 @@ End Sub
 Sub Handler_GetLayersForMapFrame2
 
 Dim	nLayer, j, nNumLayers, nMID, intCountLayers as integer
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_LST_LAYOUT_MAP_SECONDARY) = 0 Then
 		Exit Sub
@@ -1252,12 +1411,20 @@ Dim	nLayer, j, nNumLayers, nMID, intCountLayers as integer
 		Exit Sub
 	End If
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_GetLayersForMapFrame2")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_FileNameTypeClicked
 '*******************************************************************************
 Sub Handler_FileNameTypeClicked
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_LST_FILENAME_TYPES) = 1 Then
 		If UBound(marrSite1CharColNames()) = 0 Then
@@ -1271,12 +1438,20 @@ Sub Handler_FileNameTypeClicked
 		Alter Control CTRL_LST_FILENAME_COLUMN Disable
 	End If
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_FileNameTypeClicked")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
 'Handler_CreateImageClicked
 '*******************************************************************************
 Sub Handler_CreateImageClicked
+
+OnError GoTo ErrorOccured
 
 	If Not ReadControlValue(CTRL_CHK_CREATE_PNG) And Not ReadControlValue(CTRL_CHK_CREATE_JPG) then
 		alter Control CTRL_LBL_IMAGE_RESOLUTION Disable
@@ -1295,12 +1470,20 @@ Sub Handler_CreateImageClicked
 		alter Control CTRL_CMD_OUTPUT_FOLDER_BROWSE Disable
 	End If
 
-End sub
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_CreateImageClicked")
+	Call ERRShow()
+
+End Sub
 
 '*******************************************************************************
 'Handler_CreateImageClicked
 '*******************************************************************************
 Sub Handler_CreatePDFClicked
+
+OnError GoTo ErrorOccured
 
 	If Not ReadControlValue(CTRL_CHK_CREATE_PDF) Then
 		alter Control CTRL_LBL_PDF_DRIVERS Disable
@@ -1319,6 +1502,12 @@ Sub Handler_CreatePDFClicked
 		alter Control CTRL_CMD_OUTPUT_FOLDER_BROWSE Disable
 	End If
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_CreatePDFClicked")
+	Call ERRShow()
+
 End Sub
 
 '*******************************************************************************
@@ -1328,6 +1517,8 @@ Sub Handler_Site1LayersClicked
 
 dim nNumCols, c, d, e, intSumValue as integer
 dim sTab, sColName, strCMD as string
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_LST_SITE1_TABLE_NAMES) > 1 then
 
@@ -1354,12 +1545,26 @@ dim sTab, sColName, strCMD as string
 
 	End If
 
-end Sub
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_Site1LayersClicked")
+	Call ERRShow()
+
+End Sub
 
 '*******************************************************************************
 'SELECT COLUMN TO USE
 '*******************************************************************************
 Sub Handler_Site1ColumnsClicked
+
+OnError GoTo ErrorOccured
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_Site1ColumnsClicked")
+	Call ERRShow()
 
 End Sub
 
@@ -1370,6 +1575,8 @@ Sub Handler_Site2LayersClicked
 
 dim nNumCols, c as integer
 dim sTab, sColName as string
+
+OnError GoTo ErrorOccured
 
 	If ReadControlValue(CTRL_LST_SITE2_TABLE_NAMES) > 1 then
 
@@ -1388,12 +1595,26 @@ dim sTab, sColName as string
 
 	End If
 
-end Sub
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_Site2LayersClicked")
+	Call ERRShow()
+
+End Sub
 
 '*******************************************************************************
 'SELECT COLUMN TO USE
 '*******************************************************************************
 Sub Handler_Site2ColumnsClicked
+
+OnError GoTo ErrorOccured
+
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_Site2ColumnsClicked")
+	Call ERRShow()
 
 End Sub
 
@@ -1407,6 +1628,8 @@ Function Handler_SiteColumnOnlyUniqueValues(	  ByVal sTab As String
 Dim	aCol As Alias,
 	nRows As Integer,
 	sSiteIDs As String
+
+OnError GoTo ErrorOccured
 
 Handler_SiteColumnOnlyUniqueValues = FALSE
 
@@ -1459,69 +1682,167 @@ Handler_SiteColumnOnlyUniqueValues = FALSE
 	End If
 	Close Table __COUNT__SITEIDS
 
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "Handler_SiteColumnOnlyUniqueValues")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGExportWindowType() As Integer		'1 = Map Window; 2 = Layout Window
+
+OnError GoTo ErrorOccured
+
 	If mnWindowType = 0 Then
 		mnWindowType = 1
 	End If
 	SMSDLGExportWindowType = mnWindowType
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGExportWindowType")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGExportMapWindow() As Logical
+
+OnError GoTo ErrorOccured
+
 	SMSDLGExportMapWindow = (SMSDLGExportWindowType() = 1)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGExportMapWindow")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGExportLayoutWindow() As Logical
+
+OnError GoTo ErrorOccured
+
 	SMSDLGExportLayoutWindow = (Not SMSDLGExportMapWindow())
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGExportLayoutWindow")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGMainWID() As Integer
+
+OnError GoTo ErrorOccured
+
 	If SMSDLGExportMapWindow() Then
 		SMSDLGMainWID	= SMSDLGSelectedMapperWID(1)
 	Else
 		SMSDLGMainWID	= SMSDLGSelectedLayoutWID()
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGMainWID")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGMainWindowType$() As String
+
+OnError GoTo ErrorOccured
+
 	If SMSDLGExportMapWindow() Then
 		SMSDLGMainWindowType$	= "Mapper"
 	Else
 		SMSDLGMainWindowType$	= "Layout"
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGMainWindowType$")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGSelectedMapperWID(ByVal nLevel As Integer) As Integer
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		SMSDLGSelectedMapperWID = marrSelectedMapperWID(nLevel)
 	Else
 		SMSDLGSelectedMapperWID = marrSelectedMapperWID(2)
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGSelectedMapperWID")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGUseSecondaryMap() As Logical
+
+OnError GoTo ErrorOccured
+
 	SMSDLGUseSecondaryMap = (marrSelectedMapperWID(2) <> 0)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGUseSecondaryMap")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGNumberOfMaps() As Integer
-	SMSDLGNumberOfMaps = IIf(SMSDLGUseSecondaryMap(), 2, 1)
-End Function
 
+OnError GoTo ErrorOccured
+
+	SMSDLGNumberOfMaps = IIf(SMSDLGUseSecondaryMap(), 2, 1)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGNumberOfMaps")
+	Call ERRShow()
+
+End Function
 
 '**********************************************************************
 Function SMSDLGSelectedLayoutWID() As Integer
+
+OnError GoTo ErrorOccured
+
 	SMSDLGSelectedLayoutWID = mnSelectedMainWID
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGSelectedLayoutWID")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetOutputFolder() As String
+
+OnError GoTo ErrorOccured
+
 	If msOutputFolder = "" Then
 		msOutputFolder = GetFolderPath$(FOLDER_MYDOCS)
 	End If
@@ -1531,14 +1852,31 @@ Function SMSDLGGetOutputFolder() As String
 	End If
 
 	SMSDLGGetOutputFolder = msOutputFolder
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetOutputFolder")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetPDFPrinterDriver() As Integer
+
+OnError GoTo ErrorOccured
+
 	If mnPDFDriver = 0 Then
 		mnPDFDriver = 1
 	End If
 	SMSDLGGetPDFPrinterDriver = mnPDFDriver
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetPDFPrinterDriver")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
@@ -1546,6 +1884,8 @@ Sub SMSDLGLoadPDFPrinterDriverNames()
 
 Dim	sMIVersion As String,
 	nMIVersion As Integer
+
+OnError GoTo ErrorOccured
 
 	nMIVersion	= SystemInfo(SYS_INFO_MIVERSION)
 	If nMIVersion >= 1900 Then
@@ -1562,6 +1902,12 @@ Dim	sMIVersion As String,
 	marrPDFNames(3) = "Microsoft Print to PDF"
 '	marrPDFNames(4) = "PDF995"
 
+	Exit Sub
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGLoadPDFPrinterDriverNames")
+	Call ERRShow()
+
 End Sub
 
 '**********************************************************************
@@ -1569,6 +1915,8 @@ Function SMSDLGGetPDFPrinterDriver$() As String
 
 Dim	sMIVersion As String,
 	nMIVersion As Integer
+
+OnError GoTo ErrorOccured
 
 	Do Case SMSDLGGetPDFPrinterDriver()
 		Case 1
@@ -1588,10 +1936,20 @@ Dim	sMIVersion As String,
 '		Case 4
 '			SMSDLGGetPDFPrinterDriver$	= "PDF995"
 	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetPDFPrinterDriver$")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetImageResolutionItem() As Integer
+
+OnError GoTo ErrorOccured
+
 	Do Case SMSDLGGetImageResolution()
 		Case 96
 			SMSDLGGetImageResolutionItem = 1
@@ -1602,34 +1960,74 @@ Function SMSDLGGetImageResolutionItem() As Integer
 		Case 600
 			SMSDLGGetImageResolutionItem = 4
 	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetImageResolutionItem")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGGetImageResolution() As Integer
+
+OnError GoTo ErrorOccured
+
 	If mnImageResolution = 0 Then
 		mnImageResolution = 96
 	End If
 	SMSDLGGetImageResolution = mnImageResolution
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetImageResolution")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetFileNameType() As Integer		'1: Char Column; 2: Site ID; 3: Counter
+
+OnError GoTo ErrorOccured
+
 	If mnFileNameType = 0 Then
 		mnFileNameType		= 2
 	End If
 	SMSDLGGetFileNameType = mnFileNameType
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetFileNameType")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetSiteTab(ByVal nLevel As Integer) As String
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		SMSDLGGetSiteTab = marrSiteTab(nLevel)
 	Else
 		SMSDLGGetSiteTab = marrSiteTab(2)
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetSiteTab: " & nLevel)
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetSiteColumn(ByVal nLevel As Integer, ByVal sColumnType As String) As String
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		Do Case sColumnType
 			Case "FILENAME"
@@ -1643,16 +2041,34 @@ Function SMSDLGGetSiteColumn(ByVal nLevel As Integer, ByVal sColumnType As Strin
 				SMSDLGGetSiteColumn = marrColumnSiteID(2)
 		End Case
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetSiteColumn")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGCheckForNonUniqueValues() As Logical
 
+OnError GoTo ErrorOccured
+
 	SMSDLGCheckForNonUniqueValues	= mbCheckForNonUniqueValues
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGCheckForNonUniqueValues")
+	Call ERRShow()
 
 End Function
 
 '**********************************************************************
 Function SMSDLGQuerySiteTab(ByVal nLevel As Integer) As Logical
+
+OnError GoTo ErrorOccured
+
 	SMSDLGQuerySiteTab = FALSE
 	If SMSDLGGetSiteTab(nLevel) = "" Then
 		Exit Function
@@ -1660,36 +2076,76 @@ Function SMSDLGQuerySiteTab(ByVal nLevel As Integer) As Logical
 		Exit Function
 	End If
 	SMSDLGQuerySiteTab = TRUE
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGQuerySiteTab")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGAddSiteAsLayer(ByVal nLevel As Integer) As Logical
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		SMSDLGAddSiteAsLayer = marrAddSiteAsLayer(nLevel)
 	Else
 		SMSDLGAddSiteAsLayer = marrAddSiteAsLayer(2)
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGAddSiteAsLayer")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGStyleOverideSiteLayer(ByVal nLevel As Integer) As Logical
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		SMSDLGStyleOverideSiteLayer = marrStyleOverrideSiteLayer(nLevel)
 	Else
 		SMSDLGStyleOverideSiteLayer = marrStyleOverrideSiteLayer(2)
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGStyleOverideSiteLayer")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGTurnOffSiteLayer(ByVal nLevel As Integer) As Logical
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		SMSDLGTurnOffSiteLayer = marrTurnOffSiteLayer(nLevel)
 	Else
 		SMSDLGTurnOffSiteLayer = marrTurnOffSiteLayer(2)
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGTurnOffSiteLayer")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetZoomWidth(ByVal nLevel As Integer) As Float
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		If marrZoomWidth(nLevel) = 0 Then
 			marrZoomWidth(nLevel) = 5.0	'km
@@ -1701,18 +2157,38 @@ Function SMSDLGGetZoomWidth(ByVal nLevel As Integer) As Float
 		End If
 		SMSDLGGetZoomWidth = marrZoomWidth(2)
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetZoomWidth")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGKeepCurrentZoom(ByVal nLevel As Integer) As Logical
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		SMSDLGKeepCurrentZoom = marrKeepZoom(nLevel)
 	Else
 		SMSDLGKeepCurrentZoom = marrKeepZoom(2)
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGKeepCurrentZoom")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGGetZoomType(ByVal nLevel As Integer) As Logical
+
+OnError GoTo ErrorOccured
+
 	If nLevel = 1 Then
 		If marrZoomType(nLevel) = 0 Then
 			marrZoomType(nLevel) = 1
@@ -1724,10 +2200,20 @@ Function SMSDLGGetZoomType(ByVal nLevel As Integer) As Logical
 		End If
 		SMSDLGGetZoomType = marrZoomType(2)
 	End If
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetZoomType")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGExportToFormat(ByVal sType As String) As Logical	'"PNG, "JPG", "PDF"
+
+OnError GoTo ErrorOccured
+
 	Do Case sType
 		Case "JPG", "JPEG"
 			SMSDLGExportToFormat = mbPrintJPG
@@ -1736,10 +2222,20 @@ Function SMSDLGExportToFormat(ByVal sType As String) As Logical	'"PNG, "JPG", "P
 		Case "PDF"
 			SMSDLGExportToFormat = mbPrintPDF
 	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGExportToFormat")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGUseProperCase(ByVal sType As String) As Logical	'"MapTitle", "LayoutTitle", "FileName" ' Currently all use the same settings
+
+OnError GoTo ErrorOccured
+
 	Do Case sType
 		Case "MapTitle"
 			SMSDLGUseProperCase = mbWinTitleAndFileNameProperCase
@@ -1748,17 +2244,37 @@ Function SMSDLGUseProperCase(ByVal sType As String) As Logical	'"MapTitle", "Lay
 		Case "FileName"
 			SMSDLGUseProperCase = mbWinTitleAndFileNameProperCase
 	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGUseProperCase")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetDelayNextSiteItem() As Integer
+
+OnError GoTo ErrorOccured
+
 	If mnDelayNextSiteItem = 0 Then
 		mnDelayNextSiteItem = 1
 	End If
 	SMSDLGGetDelayNextSiteItem = mnDelayNextSiteItem
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetDelayNextSiteItem")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGGetDelayNextSiteMiliSecs() As Integer
+
+OnError GoTo ErrorOccured
+
 	Do Case SMSDLGGetDelayNextSiteItem()
 		Case 1
 			SMSDLGGetDelayNextSiteMiliSecs = 0
@@ -1769,21 +2285,51 @@ Function SMSDLGGetDelayNextSiteMiliSecs() As Integer
 		Case 4
 			SMSDLGGetDelayNextSiteMiliSecs = 3000
 	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetDelayNextSiteMiliSecs")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGDelayOnNextSite() As Logical
+
+OnError GoTo ErrorOccured
+
 	SMSDLGDelayOnNextSite = (SMSDLGGetDelayNextSiteItem() > 1)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetDelayNextSiteItem")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGGetDelayPrintItem() As Integer
+
+OnError GoTo ErrorOccured
+
 	If mnDelayPrintItem = 0 Then
 		mnDelayPrintItem = 1
 	End If
 	SMSDLGGetDelayPrintItem = mnDelayPrintItem
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetDelayPrintItem")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGGetDelayPrintMiliSecs() As Integer
+
+OnError GoTo ErrorOccured
+
 	Do Case SMSDLGGetDelayPrintItem()
 		Case 1
 			SMSDLGGetDelayPrintMiliSecs = 0
@@ -1794,17 +2340,43 @@ Function SMSDLGGetDelayPrintMiliSecs() As Integer
 		Case 4
 			SMSDLGGetDelayPrintMiliSecs = 3000
 	End Case
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGGetDelayPrintMiliSecs")
+	Call ERRShow()
+
 End Function
 '**********************************************************************
 Function SMSDLGDelayOnPrintWindow() As Logical
+
+OnError GoTo ErrorOccured
+
 	SMSDLGDelayOnPrintWindow = (SMSDLGGetDelayPrintItem() > 1)
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGDelayOnPrintWindow")
+	Call ERRShow()
+
 End Function
 
 '**********************************************************************
 Function SMSDLGCreateCopiesOfMainWindow() As Logical
-	SMSDLGCreateCopiesOfMainWindow = mbCreateCopiesOfMainWindow
-End Function
 
+OnError GoTo ErrorOccured
+
+	SMSDLGCreateCopiesOfMainWindow = mbCreateCopiesOfMainWindow
+
+	Exit Function
+'-------------------------
+ErrorOccured:
+	Call ERRCreate(Err(), Error$(), "SMSDLGCreateCopiesOfMainWindow")
+	Call ERRShow()
+
+End Function
 
 '**********************************************************************
 '**********************************************************************
@@ -1851,9 +2423,10 @@ OnError GoTo ErrorOccured
 	Next
 
 	Exit Sub
-'--------------------
+'-------------------------
 ErrorOccured:
-	Note Err() & " " & Error$() & " SMSDLGSaveUserSettings"
+	Call ERRCreate(Err(), Error$(), "SMSDLGSaveUserSettings")
+	Call ERRShow()
 
 End Sub
 
@@ -1912,8 +2485,9 @@ OnError GoTo ErrorOccured
 	Next
 
 	Exit Sub
-'--------------------
+'-------------------------
 ErrorOccured:
-	Note Err() & " " & Error$() & " SMSDLGLoadUserSettings"
+	Call ERRCreate(Err(), Error$(), "SMSDLGLoadUserSettings")
+	Call ERRShow()
 
 End Sub
