@@ -74,6 +74,8 @@
 '		- added additional checks to functions that get values from a row in a table
 ' Updated August 2022, version 2.3.3
 '		- Fixed an issue that prevented you from using the first column in the table as the SiteID column
+' Updated August 2022, version 2.3.4
+'		- Improved number formatting for PrintLog usage
 '*********************************************************
 
 include "MAPBASIC.DEF"
@@ -96,7 +98,7 @@ Include "SMPDLGSiteMapperPreferences.def"
 
 Define PATH_IMAGES		ApplicationDirectory$() & "_Icons\"
 Define xProgram 		"Site Mapper"
-Define xVersion 		"2.3.3"
+Define xVersion 		"2.3.4"
 Define xYear			"2022"
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "SiteMapper.ini"
@@ -395,14 +397,14 @@ OnError GoTo ErrorOccured
 	End If
 
 	' Check if user wants to proceed ...
-	If not Ask("This process will create " + nNumSites + " maps."
+	If not Ask("This process will create " + FormatNumber$(nNumSites) + " maps."
 				+ chr$(10) + "Make sure you have closed any image and PDF files this process will recreated."
 				+ chr$(10)
 				+ chr$(10) + "Are you sure you want to proceed?", "Yes", "No") Then
 		Exit Sub
 	End If
 
-	Call PrintLog("Creating (" + SMSDLGNumberOfMaps() + ") maps for " + nNumSites + " sites.", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+	Call PrintLog("Creating (" + FormatNumber$(SMSDLGNumberOfMaps()) + ") maps for " + FormatNumber$(nNumSites) + " sites.", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 
 	' Get layer style override settings and label settings of site layer
 	For nLevel = 1 To SMSDLGNumberOfMaps()
@@ -420,9 +422,9 @@ OnError GoTo ErrorOccured
 						Call GetStyleOverrideProperties(nLevel, SMSDLGSelectedMapperWID(nLevel), arrLayerID(nLevel))
 						Call GetLabelProperties(nLevel, SMSDLGSelectedMapperWID(nLevel), arrLayerID(nLevel))
 					End If
-					Call PrintLog(nLevel & ". Site Layer " + SMSDLGGetSiteTab(nLevel) + " is in selected Mapper " + SMSDLGSelectedMapperWID(nLevel) + ", position " + arrLayerID(nLevel), SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+					Call PrintLog(FormatNumber$(nLevel) & ". Site Layer " + SMSDLGGetSiteTab(nLevel) + " is in selected Mapper " + SMSDLGSelectedMapperWID(nLevel) + ", position " + arrLayerID(nLevel), SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 				Else ' Should not happen, as site layer is selected from list of layers in the mappers/layouts
-					Note nLevel & ". Site Layer " + SMSDLGGetSiteTab(nLevel) + " not found in Mapper Window " + SMSDLGSelectedMapperWID(nLevel)
+					Note FormatNumber$(nLevel) & ". Site Layer " + SMSDLGGetSiteTab(nLevel) + " not found in Mapper Window " + SMSDLGSelectedMapperWID(nLevel)
 					Exit Sub
 				End If
 				' If option set to turn off site layer, toggle off
@@ -550,7 +552,7 @@ OnError GoTo ErrorOccured
 		' replace/remove spaces, brackets, etc
 		sFileName = IIf(SMSDLGUseProperCase("MapTitle"), Proper$(sFileName), sFileName)
 
-		Call PrintLog("     " & nRowID & ": Filename: " & sFileName, SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+		Call PrintLog("     " & FormatNumber$(nRowID) & ": Filename: " & sFileName, SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 
 		'**Cloning the Main Window
 		If SMSDLGCreateCopiesOfMainWindow() Then
@@ -606,9 +608,9 @@ OnError GoTo ErrorOccured
 							& " Where " & SMSDLGGetSiteColumn(nLevel, "SITEID") & " = " & sSiteID
 							& " Into " & arrCurrentSiteTableName(nLevel) & " NoSelect"
 				End If
-				Call PrintLog("     " & nRowID & ": SQL Query: " & strCmd, SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+				Call PrintLog("     " & FormatNumber$(nRowID) & ": SQL Query: " & strCmd, SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 				Run Command strCmd
-				Call PrintLog("     " & nRowID & ": Query: " & arrCurrentSiteTableName(nLevel) & " Records: " & TableInfo(arrCurrentSiteTableName(nLevel), TAB_INFO_NROWS), SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+				Call PrintLog("     " & FormatNumber$(nRowID) & ": Query: " & arrCurrentSiteTableName(nLevel) & " Records: " & TableInfo(arrCurrentSiteTableName(nLevel), TAB_INFO_NROWS), SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 
 				If arrMapWinID(nLevel) <> 0 Then
 					Call PrepareMapForCurrentSite(arrMapWinID(nLevel), arrLayerID(nLevel), arrCurrentSiteTableName(nLevel)
@@ -617,10 +619,10 @@ OnError GoTo ErrorOccured
 					Set Window arrMapWinID(nLevel) Front
 					Update Window arrMapWinID(nLevel)
 				Else
-					Call PrintLog("     " & nRowID & ": Not preparing any map for level: " & nLevel, SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+					Call PrintLog("     " & FormatNumber$(nRowID) & ": Not preparing any map for level: " & nLevel, SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 				End If
 			Else
-				Call PrintLog("     " & nRowID & ": Not Querying any table for level: " & nLevel, SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+				Call PrintLog("     " & FormatNumber$(nRowID) & ": Not Querying any table for level: " & nLevel, SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 			End If
 		Next
 
@@ -793,7 +795,7 @@ ErrorOccured:
 Exit Sub
 ' ---------------------------
 BadRecord:
-	Call PrintLog("Error with site " + nRowID + ": " + sSiteID + ". Skipping to next site: " & Err() & " " & Error$(), SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+	Call PrintLog("Error with site " + FormatNumber$(nRowID) + ": " + sSiteID + ". Skipping to next site: " & Err() & " " & Error$(), SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 	goto SkipToHere
 
 end sub
@@ -1371,7 +1373,7 @@ End Function
 
 
 '******************************************************************
-Sub PrintLog(	  ByVal strLog as string
+Sub PrintLog( ByVal strLog as string
 			, ByVal bPrintToMessageWindow As Logical
 			, ByVal bPrintToLogFile As Logical)
 
