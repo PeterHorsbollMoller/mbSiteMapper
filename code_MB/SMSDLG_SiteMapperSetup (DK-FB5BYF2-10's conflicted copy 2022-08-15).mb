@@ -801,7 +801,7 @@ OnError GoTo ErrorOccured
 		Dialog Preserve
 		Exit Sub
 	End If
-	If ReadControlValue(CTRL_LST_SITE1_ID_COLS) < 1 Then
+	If ReadControlValue(CTRL_LST_SITE1_ID_COLS) <= 1 Then
 		Note "Please select a Site ID Column for the main map window!"
 		Dialog Preserve
 		Exit Sub

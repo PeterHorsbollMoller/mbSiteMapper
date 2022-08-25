@@ -70,6 +70,10 @@
 ' Updated May 2022, version 2.3.1
 '		- Bugfix: multiple layout open crashes the tool
 '		- implemented error handling in module SMSDLG_SiteMapperSetup
+' Updated May 2022, version 2.3.2
+'		- added additional checks to functions that get values from a row in a table
+' Updated August 2022, version 2.3.3
+'		- Fixed an issue that prevented you from using the first column in the table as the SiteID column
 '*********************************************************
 
 include "MAPBASIC.DEF"
@@ -92,7 +96,7 @@ Include "SMPDLGSiteMapperPreferences.def"
 
 Define PATH_IMAGES		ApplicationDirectory$() & "_Icons\"
 Define xProgram 		"Site Mapper"
-Define xVersion 		"2.3.1"
+Define xVersion 		"2.3.3"
 Define xYear			"2022"
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "SiteMapper.ini"
@@ -664,14 +668,14 @@ OnError GoTo ErrorOccured
 		If SMSDLGExportToFormat("JPG") Then
 			Call PrintLog("Exporting Window as JPG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".jpg", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 			Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName + ".jpg"
-				Type "JPEG" Resolution + SMSDLGGetImageResolution()
+				Type "JPEG" Resolution SMSDLGGetImageResolution()
 		End If
 
 		' >>>>>>>  Print PNG if checkbox is ticked ..
 		If SMSDLGExportToFormat("PNG") Then
 			Call PrintLog("Exporting Window as PNG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".PNG", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
 			Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName +".PNG"
-				Type "PNG" Resolution + SMSDLGGetImageResolution()
+				Type "PNG" Resolution SMSDLGGetImageResolution()
 		End If
 
 		' >>>>>>> print PDF if checkbox is ticked ..
@@ -1489,6 +1493,7 @@ Function MSFUNCGetSiteColumnValue(  ByVal sCol As String
 
 OnError GoTo ErrorOccured
 
+	Print "MSFUNCGetSiteColumnValue: Column: " & sCol
 	MSFUNCGetSiteColumnValue	= MSFUNCGetColumnValue(sCol, 1, FALSE)
 
 	Exit Function
@@ -1535,7 +1540,9 @@ Dim	sTab As String
 
 OnError GoTo ErrorOccured
 
+	Print "MSFUNCGetColumnValue: Column: " & sCol & " RowID: " & nRowID
 	sTab 				= arrCurrentSiteTableName(1)
+	Print "MSFUNCGetColumnValue: Table: " & sTab
 	MSFUNCGetColumnValue	= MSFUNCGetTableColumnValue(sTab, sCol, nRowID, bReturnError)
 
 	Exit Function
@@ -1565,6 +1572,19 @@ Dim	sValue As String,
 OnError GoTo ErrorOccured
 
 MSFUNCGetTableColumnValue = ""
+
+	If sTab = "" Then
+		If bReturnError Then
+			MSFUNCGetTableColumnValue = "Error: Table Name has not been specified"
+		End If
+		Exit Function
+	End If
+	If NumTables() = 0 Then
+		If bReturnError Then
+			MSFUNCGetTableColumnValue = "Error: No tables open"
+		End If
+		Exit Function
+	End If
 
 	If sTab = "Selection" Then
 		If SelectionInfo(SEL_INFO_NROWS) > 0 Then
@@ -1659,6 +1679,19 @@ OnError GoTo ErrorOccured
 
 MSFUNCGetTableColumnNames = ""
 
+	If sTab = "" Then
+		If bReturnError Then
+			MSFUNCGetTableColumnNames = "Error: Table Name has not been specified"
+		End If
+		Exit Function
+	End If
+	If NumTables() = 0 Then
+		If bReturnError Then
+			MSFUNCGetTableColumnNames = "Error: No tables open"
+		End If
+		Exit Function
+	End If
+
 	sSeparator 		= IIf(sSeparator = "", Chr$(10), sSeparator)
 
 	If sTab = "Selection" Then
@@ -1721,6 +1754,19 @@ Dim	sValues, sValue As String,
 OnError GoTo ErrorOccured
 
 MSFUNCGetTableColumnValues = ""
+
+	If sTab = "" Then
+		If bReturnError Then
+			MSFUNCGetTableColumnValues = "Error: Table Name has not been specified"
+		End If
+		Exit Function
+	End If
+	If NumTables() = 0 Then
+		If bReturnError Then
+			MSFUNCGetTableColumnValues = "Error: No tables open"
+		End If
+		Exit Function
+	End If
 
 	sSeparator 		= IIf(sSeparator = "", Chr$(10), sSeparator)
 
@@ -1813,6 +1859,19 @@ OnError GoTo ErrorOccured
 
 MSFUNCGetTableRowValues = ""
 
+	If sTab = "" Then
+		If bReturnError Then
+			MSFUNCGetTableRowValues = "Error: Table Name has not been specified"
+		End If
+		Exit Function
+	End If
+	If NumTables() = 0 Then
+		If bReturnError Then
+			MSFUNCGetTableRowValues = "Error: No tables open"
+		End If
+		Exit Function
+	End If
+
 	sSeparator 		= IIf(sSeparator = "", Chr$(10), sSeparator)
 
 	If sTab = "Selection" Then
@@ -1891,6 +1950,19 @@ Dim	sValues, sCol As String,
 OnError GoTo ErrorOccured
 
 MSFUNCGetTableColumnNameValues = ""
+
+	If sTab = "" Then
+		If bReturnError Then
+			MSFUNCGetTableColumnNameValues = "Error: Table Name has not been specified"
+		End If
+		Exit Function
+	End If
+	If NumTables() = 0 Then
+		If bReturnError Then
+			MSFUNCGetTableColumnNameValues = "Error: No tables open"
+		End If
+		Exit Function
+	End If
 
 	sRowSeparator 		= IIf(sRowSeparator = "", Chr$(9), sRowSeparator)
 	sColumnSeparator	= IIf(sColumnSeparator = "", Chr$(10), sColumnSeparator)
