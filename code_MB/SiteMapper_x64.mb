@@ -76,6 +76,8 @@
 '		- Fixed an issue that prevented you from using the first column in the table as the SiteID column
 ' Updated August 2022, version 2.3.4
 '		- Improved number formatting for PrintLog usage
+' Updated November 2022, version 2.4.0
+'		- Setting specific image size when exporting layout to image
 '*********************************************************
 
 include "MAPBASIC.DEF"
@@ -98,7 +100,7 @@ Include "SMPDLGSiteMapperPreferences.def"
 
 Define PATH_IMAGES		ApplicationDirectory$() & "_Icons\"
 Define xProgram 		"Site Mapper"
-Define xVersion 		"2.3.4"
+Define xVersion 		"2.4.0"	'Not yet published
 Define xYear			"2022"
 
 Define FILE_INI		GetFolderPath$(FOLDER_MI_PREFERENCE) & "SiteMapper.ini"
@@ -666,19 +668,41 @@ OnError GoTo ErrorOccured
 			Call Sleep(SMSDLGGetDelayPrintMiliSecs())
 		End If
 
-		' >>>>>>>  Print JPG if checkbox is ticked ..
-		If SMSDLGExportToFormat("JPG") Then
-			Call PrintLog("Exporting Window as JPG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".jpg", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
-			Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName + ".jpg"
-				Type "JPEG" Resolution SMSDLGGetImageResolution()
+
+	     If SMSDLGExportLayoutWindow() Then
+			' >>>>>>>  Print JPG if checkbox is ticked ..
+			If SMSDLGExportToFormat("JPG") Then
+				Set Distance Units "cm"
+				Call PrintLog("Exporting Window as JPG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".jpg", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+				Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName + ".jpg"
+					Width LayoutInfo(nMainWinID, LAYOUT_INFO_WIDTH) Units "cm"
+					Height LayoutInfo(nMainWinID, LAYOUT_INFO_HEIGHT)  Units "cm"
+					Type "JPEG" Resolution SMSDLGGetImageResolution()
+			End If
+			' >>>>>>>  Print PNG if checkbox is ticked ..
+			If SMSDLGExportToFormat("PNG") Then
+				Set Distance Units "cm"
+				Call PrintLog("Exporting Window as PNG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".PNG", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+				Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName +".PNG"
+					Width LayoutInfo(nMainWinID, LAYOUT_INFO_WIDTH) Units "cm"
+					Height LayoutInfo(nMainWinID, LAYOUT_INFO_HEIGHT)  Units "cm"
+					Type "PNG" Resolution SMSDLGGetImageResolution()
+			End If
+		Else
+			' >>>>>>>  Print JPG if checkbox is ticked ..
+			If SMSDLGExportToFormat("JPG") Then
+				Call PrintLog("Exporting Window as JPG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".jpg", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+				Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName + ".jpg"
+					Type "JPEG" Resolution SMSDLGGetImageResolution()
+			End If
+			' >>>>>>>  Print PNG if checkbox is ticked ..
+			If SMSDLGExportToFormat("PNG") Then
+				Call PrintLog("Exporting Window as PNG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".PNG", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
+				Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName +".PNG"
+					Type "PNG" Resolution SMSDLGGetImageResolution()
+			End If
 		End If
 
-		' >>>>>>>  Print PNG if checkbox is ticked ..
-		If SMSDLGExportToFormat("PNG") Then
-			Call PrintLog("Exporting Window as PNG at "+ SMSDLGGetImageResolution() +"dpi to "+SMSDLGGetOutputFolder() + sFileName + ".PNG", SMPDLGAddLogToMessageWindow(), SMPDLGAddLogToLogFile())
-			Save Window nMainWinID As SMSDLGGetOutputFolder() + sFileName +".PNG"
-				Type "PNG" Resolution SMSDLGGetImageResolution()
-		End If
 
 		' >>>>>>> print PDF if checkbox is ticked ..
 		If SMSDLGExportToFormat("PDF") Then ' print MAP to PDF and JPG
